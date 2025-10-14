@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { EmailCard } from "@/components/EmailCard";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
 
@@ -12,6 +13,10 @@ export interface Email {
   subject: string;
   snippet: string;
   action: EmailAction;
+  aiSuggestion?: {
+    action: EmailAction;
+    reason: string;
+  };
 }
 
 const mockEmails: Email[] = [
@@ -61,6 +66,56 @@ const mockEmails: Email[] = [
 
 export const EmailList = () => {
   const [emails, setEmails] = useState<Email[]>(mockEmails);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    analyzeEmails();
+  }, []);
+
+  const analyzeEmails = async () => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("classify-email", {
+        body: {
+          emails: mockEmails.map(({ sender, subject, snippet }) => ({
+            sender,
+            subject,
+            snippet,
+          })),
+        },
+      });
+
+      if (error) {
+        console.error("Classification error:", error);
+        toast.error("Failed to get AI suggestions");
+        return;
+      }
+
+      if (data?.classifications) {
+        const updatedEmails = mockEmails.map((email, index) => {
+          const classification = data.classifications.find(
+            (c: any) => c.index === index
+          );
+          return {
+            ...email,
+            aiSuggestion: classification
+              ? {
+                  action: classification.action,
+                  reason: classification.reason,
+                }
+              : undefined,
+          };
+        });
+        setEmails(updatedEmails);
+        toast.success("AI suggestions ready!");
+      }
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast.error("Failed to analyze emails");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleActionChange = (id: string, action: EmailAction) => {
     setEmails(
@@ -93,10 +148,20 @@ export const EmailList = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Your Inbox</h1>
-        <p className="text-muted-foreground">
-          Review your emails and choose what to keep, delete, or unsubscribe from
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Your Inbox</h1>
+            <p className="text-muted-foreground">
+              Review your emails and choose what to keep, delete, or unsubscribe from
+            </p>
+          </div>
+          {isAnalyzing && (
+            <div className="flex items-center gap-2 text-primary">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm font-medium">AI analyzing...</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3 mb-8">
