@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { EmailCard } from "@/components/EmailCard";
+import { UnsubscribeDialog } from "@/components/UnsubscribeDialog";
 import { toast } from "sonner";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, UserX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
@@ -17,6 +18,8 @@ export interface Email {
     action: EmailAction;
     reason: string;
   };
+  unsubscribeUrl?: string | null;
+  unsubscribeMethod?: 'GET' | 'POST' | 'MAILTO';
 }
 
 const mockEmails: Email[] = [
@@ -67,6 +70,8 @@ const mockEmails: Email[] = [
 export const EmailList = () => {
   const [emails, setEmails] = useState<Email[]>(mockEmails);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showUnsubscribeDialog, setShowUnsubscribeDialog] = useState(false);
+  const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
 
   useEffect(() => {
     analyzeEmails();
@@ -125,7 +130,7 @@ export const EmailList = () => {
     );
   };
 
-  const handleClean = () => {
+  const handleClean = async () => {
     const keepCount = emails.filter((e) => e.action === "keep").length;
     const deleteCount = emails.filter((e) => e.action === "delete").length;
     const unsubscribeCount = emails.filter((e) => e.action === "unsubscribe").length;
@@ -135,12 +140,122 @@ export const EmailList = () => {
       return;
     }
 
-    toast.success(
-      `Cleaning complete! Kept: ${keepCount}, Deleted: ${deleteCount}, Unsubscribed: ${unsubscribeCount}`
-    );
+    // If there are emails to unsubscribe, show confirmation dialog
+    if (unsubscribeCount > 0) {
+      setShowUnsubscribeDialog(true);
+    } else {
+      // Just delete
+      toast.success(
+        `Cleaning complete! Kept: ${keepCount}, Deleted: ${deleteCount}`
+      );
+      setEmails(emails.filter((e) => e.action === "keep" || e.action === null));
+    }
+  };
 
-    // Filter out deleted and unsubscribed emails
-    setEmails(emails.filter((e) => e.action === "keep" || e.action === null));
+  const handleUnsubscribeConfirm = async () => {
+    setIsProcessingUnsubscribe(true);
+    
+    try {
+      const unsubscribeEmails = emails.filter((e) => e.action === "unsubscribe");
+      
+      // Step 1: Detect unsubscribe links
+      toast.info("Detecting unsubscribe links...");
+      const { data: linkData, error: linkError } = await supabase.functions.invoke(
+        "process-unsubscribe",
+        {
+          body: {
+            emails: unsubscribeEmails.map(({ id, sender, subject, snippet }) => ({
+              id,
+              sender,
+              subject,
+              snippet,
+            })),
+          },
+        }
+      );
+
+      if (linkError) {
+        console.error("Link detection error:", linkError);
+        toast.error("Failed to detect unsubscribe links");
+        setIsProcessingUnsubscribe(false);
+        return;
+      }
+
+      // Update emails with unsubscribe links
+      const linksMap = new Map(
+        linkData.unsubscribeLinks.map((link: any) => [link.id, link])
+      );
+
+      const emailsWithLinks = emails.map((email) => {
+        const link = linksMap.get(email.id) as { unsubscribeUrl: string | null; method: 'GET' | 'POST' | 'MAILTO' } | undefined;
+        if (link) {
+          return {
+            ...email,
+            unsubscribeUrl: link.unsubscribeUrl,
+            unsubscribeMethod: link.method,
+          };
+        }
+        return email;
+      });
+
+      setEmails(emailsWithLinks);
+
+      // Step 2: Execute unsubscribe requests
+      const unsubscribesToExecute = unsubscribeEmails
+        .map((email) => {
+          const link = linksMap.get(email.id) as { unsubscribeUrl: string | null; method: 'GET' | 'POST' | 'MAILTO' } | undefined;
+          return link?.unsubscribeUrl
+            ? {
+                id: email.id,
+                url: link.unsubscribeUrl,
+                method: link.method,
+              }
+            : null;
+        })
+        .filter((item): item is { id: string; url: string; method: 'GET' | 'POST' | 'MAILTO' } => item !== null);
+
+      if (unsubscribesToExecute.length === 0) {
+        toast.warning("No unsubscribe links found in selected emails");
+        setIsProcessingUnsubscribe(false);
+        setShowUnsubscribeDialog(false);
+        return;
+      }
+
+      toast.info(`Sending ${unsubscribesToExecute.length} unsubscribe requests...`);
+      
+      const { data: execData, error: execError } = await supabase.functions.invoke(
+        "execute-unsubscribe",
+        {
+          body: { unsubscribes: unsubscribesToExecute },
+        }
+      );
+
+      if (execError) {
+        console.error("Unsubscribe execution error:", execError);
+        toast.error("Failed to process unsubscribe requests");
+        setIsProcessingUnsubscribe(false);
+        return;
+      }
+
+      const successCount = execData.results.filter((r: any) => r.success).length;
+      const failCount = execData.results.length - successCount;
+
+      // Remove successfully unsubscribed and deleted emails
+      const deleteCount = emails.filter((e) => e.action === "delete").length;
+      setEmails(emails.filter((e) => e.action === "keep" || e.action === null));
+
+      toast.success(
+        `Cleaning complete! Unsubscribed: ${successCount}${
+          failCount > 0 ? ` (${failCount} failed)` : ""
+        }, Deleted: ${deleteCount}`
+      );
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      toast.error("Failed to process unsubscribe requests");
+    } finally {
+      setIsProcessingUnsubscribe(false);
+      setShowUnsubscribeDialog(false);
+    }
   };
 
   const actionsSelected = emails.some((e) => e.action !== null);
@@ -208,6 +323,14 @@ export const EmailList = () => {
           </div>
         </div>
       )}
+
+      <UnsubscribeDialog
+        open={showUnsubscribeDialog}
+        onOpenChange={setShowUnsubscribeDialog}
+        emailCount={emails.filter((e) => e.action === "unsubscribe").length}
+        onConfirm={handleUnsubscribeConfirm}
+        isProcessing={isProcessingUnsubscribe}
+      />
     </div>
   );
 };
