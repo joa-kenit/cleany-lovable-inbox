@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      email_actions: {
+        Row: {
+          action: string
+          created_at: string
+          email_sender: string
+          email_subject: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          email_sender: string
+          email_subject: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          email_sender?: string
+          email_subject?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          action_count: number
+          confidence_score: number
+          id: string
+          last_updated: string
+          preferred_action: string
+          sender_pattern: string
+          user_id: string
+        }
+        Insert: {
+          action_count?: number
+          confidence_score?: number
+          id?: string
+          last_updated?: string
+          preferred_action: string
+          sender_pattern: string
+          user_id: string
+        }
+        Update: {
+          action_count?: number
+          confidence_score?: number
+          id?: string
+          last_updated?: string
+          preferred_action?: string
+          sender_pattern?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_summaries: {
+        Row: {
+          auto_actions_applied: number
+          created_at: string
+          emails_deleted: number
+          emails_kept: number
+          emails_processed: number
+          emails_unsubscribed: number
+          id: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          auto_actions_applied?: number
+          created_at?: string
+          emails_deleted?: number
+          emails_kept?: number
+          emails_processed?: number
+          emails_unsubscribed?: number
+          id?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          auto_actions_applied?: number
+          created_at?: string
+          emails_deleted?: number
+          emails_kept?: number
+          emails_processed?: number
+          emails_unsubscribed?: number
+          id?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

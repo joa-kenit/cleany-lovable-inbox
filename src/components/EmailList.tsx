@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { EmailCard } from "@/components/EmailCard";
 import { UnsubscribeDialog } from "@/components/UnsubscribeDialog";
+import { WeeklySummary } from "@/components/WeeklySummary";
+import { PreferencesManager } from "@/components/PreferencesManager";
 import { toast } from "sonner";
-import { Sparkles, Loader2, UserX } from "lucide-react";
+import { Sparkles, Loader2, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
@@ -72,10 +74,63 @@ export const EmailList = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showUnsubscribeDialog, setShowUnsubscribeDialog] = useState(false);
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
+  const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
 
   useEffect(() => {
     analyzeEmails();
+    if (autoApplyEnabled) {
+      applyLearnedPreferences();
+    }
   }, []);
+
+  const applyLearnedPreferences = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("apply-preferences", {
+        body: {
+          emails: mockEmails.map(({ id, sender, subject }) => ({
+            id,
+            sender,
+            subject,
+          })),
+          minConfidence: 0.75,
+        },
+      });
+
+      if (error) {
+        console.error("Error applying preferences:", error);
+        return;
+      }
+
+      if (data?.suggestions) {
+        const updatedEmails = mockEmails.map((email) => {
+          const suggestion = data.suggestions.find(
+            (s: any) => s.id === email.id && s.suggestedAction
+          );
+          if (suggestion) {
+            return {
+              ...email,
+              action: suggestion.suggestedAction,
+              aiSuggestion: {
+                action: suggestion.suggestedAction,
+                reason: suggestion.reason,
+              },
+            };
+          }
+          return email;
+        });
+
+        const autoAppliedCount = updatedEmails.filter(e => e.action !== null).length;
+        if (autoAppliedCount > 0) {
+          setEmails(updatedEmails);
+          toast.success(`AI auto-applied ${autoAppliedCount} learned preferences!`, {
+            icon: <Brain className="h-4 w-4" />,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to apply preferences:", error);
+    }
+  };
 
   const analyzeEmails = async () => {
     setIsAnalyzing(true);
@@ -138,6 +193,26 @@ export const EmailList = () => {
     if (deleteCount === 0 && unsubscribeCount === 0) {
       toast.error("Please mark at least one email to delete or unsubscribe");
       return;
+    }
+
+    // Learn from user actions
+    const actionsToLearn = emails
+      .filter((e) => e.action !== null)
+      .map((e) => ({
+        sender: e.sender,
+        subject: e.subject,
+        action: e.action!,
+      }));
+
+    if (actionsToLearn.length > 0) {
+      try {
+        await supabase.functions.invoke("learn-preferences", {
+          body: { actions: actionsToLearn },
+        });
+        console.log("Successfully learned from user actions");
+      } catch (error) {
+        console.error("Failed to learn from actions:", error);
+      }
     }
 
     // If there are emails to unsubscribe, show confirmation dialog
@@ -261,7 +336,7 @@ export const EmailList = () => {
   const actionsSelected = emails.some((e) => e.action !== null);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -276,6 +351,15 @@ export const EmailList = () => {
               <span className="text-sm font-medium">AI analyzing...</span>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2 space-y-6">
+          <WeeklySummary />
+        </div>
+        <div className="lg:col-span-1">
+          <PreferencesManager />
         </div>
       </div>
 
