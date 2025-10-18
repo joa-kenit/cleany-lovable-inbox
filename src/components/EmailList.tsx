@@ -5,8 +5,9 @@ import { UnsubscribeDialog } from "@/components/UnsubscribeDialog";
 import { WeeklySummary } from "@/components/WeeklySummary";
 import { PreferencesManager } from "@/components/PreferencesManager";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Brain } from "lucide-react";
+import { Sparkles, Loader2, Brain, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
 
@@ -70,11 +71,18 @@ const mockEmails: Email[] = [
 ];
 
 export const EmailList = () => {
+  const navigate = useNavigate();
   const [emails, setEmails] = useState<Email[]>(mockEmails);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showUnsubscribeDialog, setShowUnsubscribeDialog] = useState(false);
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+    toast.success("Signed out successfully");
+  };
 
   useEffect(() => {
     analyzeEmails();
@@ -345,12 +353,22 @@ export const EmailList = () => {
               Review your emails and choose what to keep, delete, or unsubscribe from
             </p>
           </div>
-          {isAnalyzing && (
-            <div className="flex items-center gap-2 text-primary">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm font-medium">AI analyzing...</span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {isAnalyzing && (
+              <div className="flex items-center gap-2 text-primary">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm font-medium">AI analyzing...</span>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </div>
 
