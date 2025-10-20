@@ -25,54 +25,9 @@ export interface Email {
   unsubscribeMethod?: 'GET' | 'POST' | 'MAILTO';
 }
 
-const mockEmails: Email[] = [
-  {
-    id: "1",
-    sender: "newsletter@updates.com",
-    subject: "Weekly Newsletter - Tech Updates",
-    snippet: "Check out this week's top stories in technology and innovation...",
-    action: null,
-  },
-  {
-    id: "2",
-    sender: "promo@retailstore.com",
-    subject: "50% OFF Everything - Limited Time!",
-    snippet: "Don't miss out on our biggest sale of the year. Shop now and save...",
-    action: null,
-  },
-  {
-    id: "3",
-    sender: "john@company.com",
-    subject: "Meeting Tomorrow at 10 AM",
-    snippet: "Hi, just confirming our meeting scheduled for tomorrow morning...",
-    action: null,
-  },
-  {
-    id: "4",
-    sender: "notifications@social.com",
-    subject: "You have 23 new notifications",
-    snippet: "Sarah and 22 others interacted with your posts. See what's new...",
-    action: null,
-  },
-  {
-    id: "5",
-    sender: "billing@service.com",
-    subject: "Your Invoice for January",
-    snippet: "Please find attached your invoice for services rendered in January...",
-    action: null,
-  },
-  {
-    id: "6",
-    sender: "alerts@bank.com",
-    subject: "Account Security Alert",
-    snippet: "We noticed a login from a new device. If this wasn't you, please...",
-    action: null,
-  },
-];
-
 export const EmailList = () => {
   const navigate = useNavigate();
-  const [emails, setEmails] = useState<Email[]>(mockEmails);
+  const [emails, setEmails] = useState<Email[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showUnsubscribeDialog, setShowUnsubscribeDialog] = useState(false);
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
@@ -109,7 +64,7 @@ export const EmailList = () => {
       if (!providerToken) {
         console.error('No provider token in session. User may need to re-authenticate with Gmail permissions.');
         toast.error('Gmail access not available. Please sign in again and grant Gmail permissions.');
-        setEmails(mockEmails); // Fallback to mock data
+        setEmails([]);
         return;
       }
 
@@ -126,21 +81,21 @@ export const EmailList = () => {
       if (error) {
         console.error('Error fetching Gmail emails:', error);
         toast.error('Failed to fetch Gmail emails: ' + (error.message || 'Unknown error'));
-        setEmails(mockEmails); // Fallback to mock data
+        setEmails([]);
         return;
       }
 
       if (!data) {
         console.error('No data returned from fetch-gmail-emails');
         toast.error('No data received from Gmail');
-        setEmails(mockEmails);
+        setEmails([]);
         return;
       }
 
       if (data.error) {
         console.error('Gmail API error:', data.error);
         toast.error(data.error);
-        setEmails(mockEmails);
+        setEmails([]);
         return;
       }
 
@@ -148,7 +103,7 @@ export const EmailList = () => {
       if (!data.emails || !Array.isArray(data.emails)) {
         console.error('Invalid emails data structure:', data);
         toast.error('Invalid email data received');
-        setEmails(mockEmails);
+        setEmails([]);
         return;
       }
 
@@ -165,7 +120,7 @@ export const EmailList = () => {
     } catch (error) {
       console.error('Failed to fetch Gmail emails:', error);
       toast.error('Failed to load Gmail emails: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      setEmails(mockEmails); // Fallback to mock data
+      setEmails([]);
     } finally {
       setIsLoadingEmails(false);
     }
@@ -491,14 +446,14 @@ export const EmailList = () => {
         </div>
       )}
 
-      {emails.length === 0 && (
+      {emails.length === 0 && !isLoadingEmails && (
         <div className="text-center py-12">
           <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">All Clean!</h3>
+          <h3 className="text-xl font-semibold mb-2">No Emails Found</h3>
           <p className="text-muted-foreground">
-            Your inbox is looking great
+            Unable to load emails from your Gmail account
           </p>
         </div>
       )}
