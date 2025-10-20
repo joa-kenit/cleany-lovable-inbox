@@ -77,6 +77,7 @@ export const EmailList = () => {
   const [showUnsubscribeDialog, setShowUnsubscribeDialog] = useState(false);
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
+  const [isLoadingEmails, setIsLoadingEmails] = useState(true);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -84,18 +85,108 @@ export const EmailList = () => {
     toast.success("Signed out successfully");
   };
 
-  useEffect(() => {
-    analyzeEmails();
-    if (autoApplyEnabled) {
-      applyLearnedPreferences();
+  const fetchGmailEmails = async () => {
+    setIsLoadingEmails(true);
+    try {
+      // Get the current session with provider token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        toast.error('Failed to get authentication session');
+        return;
+      }
+
+      if (!session) {
+        console.error('No active session');
+        toast.error('Please sign in to access your emails');
+        return;
+      }
+
+      // Check if provider token exists
+      const providerToken = session.provider_token;
+      
+      if (!providerToken) {
+        console.error('No provider token in session. User may need to re-authenticate with Gmail permissions.');
+        toast.error('Gmail access not available. Please sign in again and grant Gmail permissions.');
+        setEmails(mockEmails); // Fallback to mock data
+        return;
+      }
+
+      console.log('Fetching Gmail emails with provider token...');
+
+      // Call edge function to fetch Gmail emails
+      const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
+        body: { 
+          providerToken,
+          maxResults: 20 
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching Gmail emails:', error);
+        toast.error('Failed to fetch Gmail emails: ' + (error.message || 'Unknown error'));
+        setEmails(mockEmails); // Fallback to mock data
+        return;
+      }
+
+      if (!data) {
+        console.error('No data returned from fetch-gmail-emails');
+        toast.error('No data received from Gmail');
+        setEmails(mockEmails);
+        return;
+      }
+
+      if (data.error) {
+        console.error('Gmail API error:', data.error);
+        toast.error(data.error);
+        setEmails(mockEmails);
+        return;
+      }
+
+      // Validate emails array with proper null checks
+      if (!data.emails || !Array.isArray(data.emails)) {
+        console.error('Invalid emails data structure:', data);
+        toast.error('Invalid email data received');
+        setEmails(mockEmails);
+        return;
+      }
+
+      if (data.emails.length === 0) {
+        toast.info('No emails found in your inbox');
+        setEmails([]);
+        return;
+      }
+
+      console.log(`Successfully fetched ${data.emails.length} emails from Gmail`);
+      setEmails(data.emails);
+      toast.success(`Loaded ${data.emails.length} emails from Gmail`);
+
+    } catch (error) {
+      console.error('Failed to fetch Gmail emails:', error);
+      toast.error('Failed to load Gmail emails: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      setEmails(mockEmails); // Fallback to mock data
+    } finally {
+      setIsLoadingEmails(false);
     }
+  };
+
+  useEffect(() => {
+    fetchGmailEmails().then(() => {
+      analyzeEmails();
+      if (autoApplyEnabled) {
+        applyLearnedPreferences();
+      }
+    });
   }, []);
 
   const applyLearnedPreferences = async () => {
+    if (emails.length === 0) return;
+    
     try {
       const { data, error } = await supabase.functions.invoke("apply-preferences", {
         body: {
-          emails: mockEmails.map(({ id, sender, subject }) => ({
+          emails: emails.map(({ id, sender, subject }) => ({
             id,
             sender,
             subject,
@@ -110,7 +201,7 @@ export const EmailList = () => {
       }
 
       if (data?.suggestions) {
-        const updatedEmails = mockEmails.map((email) => {
+        const updatedEmails = emails.map((email) => {
           const suggestion = data.suggestions.find(
             (s: any) => s.id === email.id && s.suggestedAction
           );
@@ -141,11 +232,13 @@ export const EmailList = () => {
   };
 
   const analyzeEmails = async () => {
+    if (emails.length === 0) return;
+    
     setIsAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke("classify-email", {
         body: {
-          emails: mockEmails.map(({ sender, subject, snippet }) => ({
+          emails: emails.map(({ sender, subject, snippet }) => ({
             sender,
             subject,
             snippet,
@@ -160,7 +253,7 @@ export const EmailList = () => {
       }
 
       if (data?.classifications) {
-        const updatedEmails = mockEmails.map((email, index) => {
+        const updatedEmails = emails.map((email, index) => {
           const classification = data.classifications.find(
             (c: any) => c.index === index
           );
@@ -381,15 +474,22 @@ export const EmailList = () => {
         </div>
       </div>
 
-      <div className="space-y-3 mb-8">
-        {emails.map((email) => (
-          <EmailCard
-            key={email.id}
-            email={email}
-            onActionChange={handleActionChange}
-          />
-        ))}
-      </div>
+      {isLoadingEmails ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Loading your Gmail emails...</p>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-8">
+          {emails.map((email) => (
+            <EmailCard
+              key={email.id}
+              email={email}
+              onActionChange={handleActionChange}
+            />
+          ))}
+        </div>
+      )}
 
       {emails.length === 0 && (
         <div className="text-center py-12">
