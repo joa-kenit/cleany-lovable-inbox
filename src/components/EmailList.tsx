@@ -23,6 +23,7 @@ export interface Email {
   };
   unsubscribeUrl?: string | null;
   unsubscribeMethod?: 'GET' | 'POST' | 'MAILTO';
+  emailCount?: number;
 }
 
 export const EmailList = () => {
@@ -125,6 +126,23 @@ export const EmailList = () => {
       setIsLoadingEmails(false);
     }
   };
+
+  // Group emails by sender and keep only the most recent one
+  const groupedEmails = emails.reduce((acc, email) => {
+    const sender = email.sender;
+    if (!acc[sender]) {
+      acc[sender] = { email, count: 1 };
+    } else {
+      // Keep the most recent (assuming later in array = more recent)
+      acc[sender] = { email, count: acc[sender].count + 1 };
+    }
+    return acc;
+  }, {} as Record<string, { email: Email; count: number }>);
+
+  const displayEmails = Object.values(groupedEmails).map(({ email, count }) => ({
+    ...email,
+    emailCount: count,
+  }));
 
   useEffect(() => {
     fetchGmailEmails().then(() => {
@@ -436,11 +454,12 @@ export const EmailList = () => {
         </div>
       ) : (
         <div className="space-y-3 mb-8">
-          {emails.map((email) => (
+          {displayEmails.map((email) => (
             <EmailCard
               key={email.id}
               email={email}
               onActionChange={handleActionChange}
+              emailCount={email.emailCount}
             />
           ))}
         </div>
@@ -458,15 +477,15 @@ export const EmailList = () => {
         </div>
       )}
 
-      {emails.length > 0 && (
+      {displayEmails.length > 0 && (
         <div className="sticky bottom-8 bg-card border rounded-xl p-6 shadow-lg">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-muted-foreground">
               {actionsSelected
                 ? `${emails.filter((e) => e.action !== null).length} of ${
                     emails.length
-                  } emails marked`
-                : "Mark emails to clean your inbox"}
+                  } emails marked (${displayEmails.length} unique senders)`
+                : `${displayEmails.length} unique senders - Mark emails to clean your inbox`}
             </div>
             <Button
               size="lg"

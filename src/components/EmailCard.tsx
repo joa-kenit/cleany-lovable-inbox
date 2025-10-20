@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 interface EmailCardProps {
   email: Email;
   onActionChange: (id: string, action: EmailAction) => void;
+  emailCount?: number;
 }
 
-export const EmailCard = ({ email, onActionChange }: EmailCardProps) => {
+export const EmailCard = ({ email, onActionChange, emailCount }: EmailCardProps) => {
   const getActionButton = (action: EmailAction, currentAction: EmailAction) => {
     const isSelected = email.action === action;
     
@@ -81,8 +82,15 @@ export const EmailCard = ({ email, onActionChange }: EmailCardProps) => {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm text-muted-foreground mb-1 truncate">
-              {email.sender}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="font-medium text-sm text-muted-foreground truncate">
+                {email.sender}
+              </div>
+              {emailCount && emailCount > 1 && (
+                <Badge variant="secondary" className="text-xs">
+                  {emailCount} emails
+                </Badge>
+              )}
             </div>
             <h3 className="font-semibold mb-1 truncate">{email.subject}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">
