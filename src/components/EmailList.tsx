@@ -4,6 +4,7 @@ import { EmailCard } from "@/components/EmailCard";
 import { UnsubscribeDialog } from "@/components/UnsubscribeDialog";
 import { WeeklySummary } from "@/components/WeeklySummary";
 import { PreferencesManager } from "@/components/PreferencesManager";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Sparkles, Loader2, Brain, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,7 @@ export interface Email {
   unsubscribeUrl?: string | null;
   unsubscribeMethod?: 'GET' | 'POST' | 'MAILTO';
   emailCount?: number;
+  date?: string;
 }
 
 export const EmailList = () => {
@@ -34,6 +36,7 @@ export const EmailList = () => {
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
+  const [filterTab, setFilterTab] = useState<string>("this-week");
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -127,8 +130,49 @@ export const EmailList = () => {
     }
   };
 
+  // Helper function to detect newsletter emails
+  const isNewsletterEmail = (email: Email): boolean => {
+    const newsletterKeywords = ['newsletter', 'subscription', 'digest', 'weekly', 'monthly', 'unsubscribe'];
+    const subjectLower = email.subject.toLowerCase();
+    const senderLower = email.sender.toLowerCase();
+    
+    return newsletterKeywords.some(keyword => 
+      subjectLower.includes(keyword) || senderLower.includes(keyword)
+    ) || !!email.unsubscribeUrl;
+  };
+
+  // Filter emails based on selected tab
+  const getFilteredEmails = () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    switch (filterTab) {
+      case "all":
+        return emails;
+      case "this-week":
+        return emails.filter(email => {
+          if (!email.date) return true; // Include if no date
+          return new Date(email.date) >= oneWeekAgo;
+        });
+      case "this-month":
+        return emails.filter(email => {
+          if (!email.date) return true; // Include if no date
+          return new Date(email.date) >= oneMonthAgo;
+        });
+      case "newsletters":
+        return emails.filter(isNewsletterEmail);
+      case "most-frequent":
+        return emails; // Will be sorted after grouping
+      default:
+        return emails;
+    }
+  };
+
+  const filteredEmails = getFilteredEmails();
+
   // Group emails by sender and keep only the most recent one
-  const groupedEmails = emails.reduce((acc, email) => {
+  const groupedEmails = filteredEmails.reduce((acc, email) => {
     const sender = email.sender;
     if (!acc[sender]) {
       acc[sender] = { email, count: 1 };
@@ -139,10 +183,15 @@ export const EmailList = () => {
     return acc;
   }, {} as Record<string, { email: Email; count: number }>);
 
-  const displayEmails = Object.values(groupedEmails).map(({ email, count }) => ({
+  let displayEmails = Object.values(groupedEmails).map(({ email, count }) => ({
     ...email,
     emailCount: count,
   }));
+
+  // Sort by frequency if "most-frequent" tab is selected
+  if (filterTab === "most-frequent") {
+    displayEmails = displayEmails.sort((a, b) => (b.emailCount || 0) - (a.emailCount || 0));
+  }
 
   useEffect(() => {
     fetchGmailEmails().then(() => {
@@ -446,6 +495,16 @@ export const EmailList = () => {
           <PreferencesManager />
         </div>
       </div>
+
+      <Tabs value={filterTab} onValueChange={setFilterTab} className="mb-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all">All Senders</TabsTrigger>
+          <TabsTrigger value="this-week">This Week</TabsTrigger>
+          <TabsTrigger value="this-month">This Month</TabsTrigger>
+          <TabsTrigger value="newsletters">Newsletters</TabsTrigger>
+          <TabsTrigger value="most-frequent">Most Frequent</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {isLoadingEmails ? (
         <div className="flex flex-col items-center justify-center py-12">
