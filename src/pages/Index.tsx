@@ -29,6 +29,13 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Reset connection state when user signs out
+  useEffect(() => {
+    if (!user) {
+      setIsConnected(false);
+    }
+  }, [user]);
+
   const handleConnect = () => {
     if (user) {
       setIsConnected(true);
