@@ -1,16 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Trash2, UserX, Check, Sparkles } from "lucide-react";
+import { Mail, Trash2, UserX, Check, Sparkles, Loader2 } from "lucide-react";
 import { Email, EmailAction } from "./EmailList";
 import { cn } from "@/lib/utils";
 
 interface EmailCardProps {
   email: Email;
   onActionChange: (id: string, action: EmailAction) => void;
+  onDelete?: (id: string, sender: string) => void;
+  onUnsubscribe?: (id: string, sender: string) => void;
   emailCount?: number;
+  isProcessing?: boolean;
 }
 
-export const EmailCard = ({ email, onActionChange, emailCount }: EmailCardProps) => {
+export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emailCount, isProcessing }: EmailCardProps) => {
   const getActionButton = (action: EmailAction, currentAction: EmailAction) => {
     const isSelected = email.action === action;
     
@@ -51,15 +54,29 @@ export const EmailCard = ({ email, onActionChange, emailCount }: EmailCardProps)
 
     const config = variants[action];
     const Icon = config.icon;
+    const showLoader = isProcessing && action === 'unsubscribe';
 
     return (
       <Button
         variant="outline"
         size="sm"
         className={config.className}
-        onClick={() => onActionChange(email.id, isSelected ? null : action)}
+        onClick={() => {
+          if (action === 'delete' && onDelete) {
+            onDelete(email.id, email.sender);
+          } else if (action === 'unsubscribe' && onUnsubscribe) {
+            onUnsubscribe(email.id, email.sender);
+          } else {
+            onActionChange(email.id, isSelected ? null : action);
+          }
+        }}
+        disabled={isProcessing}
       >
-        <Icon className="h-4 w-4 mr-1.5" />
+        {showLoader ? (
+          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+        ) : (
+          <Icon className="h-4 w-4 mr-1.5" />
+        )}
         {config.label}
       </Button>
     );
