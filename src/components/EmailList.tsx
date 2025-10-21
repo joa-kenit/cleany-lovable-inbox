@@ -52,32 +52,42 @@ export const EmailList = () => {
   const fetchGmailEmails = async () => {
     setIsLoadingEmails(true);
     try {
+      console.log('[Gmail Fetch] Starting Gmail email fetch...');
+      
       // Get the current session with provider token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error('Session error:', sessionError);
+        console.error('[Gmail Fetch] Session error:', sessionError);
         toast.error('Failed to get authentication session');
-        return;
-      }
-
-      if (!session) {
-        console.error('No active session');
-        toast.error('Please sign in to access your emails');
-        return;
-      }
-
-      // Check if provider token exists
-      const providerToken = session.provider_token;
-      
-      if (!providerToken) {
-        console.error('No provider token in session. User may need to re-authenticate with Gmail permissions.');
-        toast.error('Gmail access not available. Please sign in again and grant Gmail permissions.');
         setEmails([]);
         return;
       }
 
-      console.log('Fetching Gmail emails with provider token...');
+      if (!session) {
+        console.error('[Gmail Fetch] No active session found');
+        toast.error('Please sign in to access your emails');
+        setEmails([]);
+        return;
+      }
+
+      console.log('[Gmail Fetch] Session found, checking for provider token...');
+      
+      // Check if provider token exists
+      const providerToken = session.provider_token;
+      
+      if (!providerToken) {
+        console.error('[Gmail Fetch] No provider token in session. Session data:', {
+          hasUser: !!session.user,
+          provider: session.user?.app_metadata?.provider,
+          providers: session.user?.app_metadata?.providers
+        });
+        toast.error('Gmail access not available. Please sign out and sign in again with Gmail permissions.');
+        setEmails([]);
+        return;
+      }
+
+      console.log('[Gmail Fetch] Provider token found, calling edge function...');
 
       // Call edge function to fetch Gmail emails
       const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
@@ -87,22 +97,28 @@ export const EmailList = () => {
         },
       });
 
+      console.log('[Gmail Fetch] Edge function response:', { 
+        hasData: !!data, 
+        hasError: !!error,
+        dataKeys: data ? Object.keys(data) : [],
+      });
+
       if (error) {
-        console.error('Error fetching Gmail emails:', error);
+        console.error('[Gmail Fetch] Edge function error:', error);
         toast.error('Failed to fetch Gmail emails: ' + (error.message || 'Unknown error'));
         setEmails([]);
         return;
       }
 
       if (!data) {
-        console.error('No data returned from fetch-gmail-emails');
+        console.error('[Gmail Fetch] No data returned from edge function');
         toast.error('No data received from Gmail');
         setEmails([]);
         return;
       }
 
       if (data.error) {
-        console.error('Gmail API error:', data.error);
+        console.error('[Gmail Fetch] Gmail API error from edge function:', data.error);
         toast.error(data.error);
         setEmails([]);
         return;
@@ -110,24 +126,25 @@ export const EmailList = () => {
 
       // Validate emails array with proper null checks
       if (!data.emails || !Array.isArray(data.emails)) {
-        console.error('Invalid emails data structure:', data);
+        console.error('[Gmail Fetch] Invalid emails data structure:', data);
         toast.error('Invalid email data received');
         setEmails([]);
         return;
       }
 
       if (data.emails.length === 0) {
+        console.log('[Gmail Fetch] No emails found in inbox');
         toast.info('No emails found in your inbox');
         setEmails([]);
         return;
       }
 
-      console.log(`Successfully fetched ${data.emails.length} emails from Gmail`);
+      console.log(`[Gmail Fetch] Successfully fetched ${data.emails.length} emails from Gmail`);
       setEmails(data.emails);
       toast.success(`Loaded ${data.emails.length} emails from Gmail`);
 
     } catch (error) {
-      console.error('Failed to fetch Gmail emails:', error);
+      console.error('[Gmail Fetch] Unexpected error:', error);
       toast.error('Failed to load Gmail emails: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setEmails([]);
     } finally {
@@ -601,9 +618,24 @@ export const EmailList = () => {
             <Sparkles className="h-8 w-8 text-primary" />
           </div>
           <h3 className="text-xl font-semibold mb-2">No Emails Found</h3>
-          <p className="text-muted-foreground">
-            Unable to load emails from your Gmail account
+          <p className="text-muted-foreground mb-6">
+            Unable to load emails from your Gmail account. This could be because:
           </p>
+          <ul className="text-sm text-muted-foreground mb-6 text-left max-w-md mx-auto space-y-2">
+            <li>• Your Gmail access token may have expired</li>
+            <li>• You need to grant Gmail permissions</li>
+            <li>• There's a temporary connection issue</li>
+          </ul>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={fetchGmailEmails} size="lg">
+              <Loader2 className="h-5 w-5 mr-2" />
+              Retry Loading Emails
+            </Button>
+            <Button onClick={handleSignOut} variant="outline" size="lg">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out & Re-authenticate
+            </Button>
+          </div>
         </div>
       )}
 
