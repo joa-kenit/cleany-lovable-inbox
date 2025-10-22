@@ -330,14 +330,38 @@ export const EmailList = () => {
     );
   };
 
-  const handleImmediateDelete = (id: string, sender: string) => {
-    // Save current state for undo
-    const previousEmails = [...emails];
+const handleImmediateDelete = async (id: string, sender: string) => {
+  // Save current state for undo
+  const previousEmails = [...emails];
+
+  // Remove email immediately (optimistic update)
+  const updatedEmails = emails.filter(email => email.id !== id);
+  setEmails(updatedEmails);
+
+  try {
+    // Get the access token
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.provider_token;
+
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    // Find all email IDs from this sender
+    const emailsToDelete = emails.filter(email => email.sender === sender);
     
-    // Remove email immediately (optimistic update)
-    const updatedEmails = emails.filter(email => email.id !== id);
-    setEmails(updatedEmails);
-    
+    // Delete each email from Gmail
+    for (const email of emailsToDelete) {
+      const gmailId = email.id.split('-')[0]; // Extract Gmail message ID
+      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/trash`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+
     // Show success toast with undo
     const toastId = toast.success(`Deleted emails from ${sender}`, {
       duration: 5000,
@@ -349,7 +373,13 @@ export const EmailList = () => {
         },
       },
     });
-  };
+  } catch (error) {
+    console.error('Error deleting emails:', error);
+    // Restore previous state on error
+    setEmails(previousEmails);
+    toast.error('Failed to delete emails. Please try again.');
+  }
+};
 
   const handleImmediateUnsubscribe = async (id: string, sender: string) => {
     setProcessingEmailId(id);
