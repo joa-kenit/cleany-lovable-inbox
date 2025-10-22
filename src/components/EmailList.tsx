@@ -381,82 +381,87 @@ const handleImmediateDelete = async (id: string, sender: string) => {
   }
 };
 
-  const handleImmediateUnsubscribe = async (id: string, sender: string) => {
-    setProcessingEmailId(id);
-    
-    try {
-      const email = emails.find(e => e.id === id);
-      if (!email) return;
+const handleUnsubscribe = async (email: Email) => {
+  try {
+    // Get the access token
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.provider_token;
 
-      // Step 1: Detect unsubscribe link
-      const { data: linkData, error: linkError } = await supabase.functions.invoke(
-        "process-unsubscribe",
-        {
-          body: {
-            emails: [{
-              id: email.id,
-              sender: email.sender,
-              subject: email.subject,
-              snippet: email.snippet,
-            }],
-          },
-        }
-      );
-
-      if (linkError || !linkData?.unsubscribeLinks?.[0]?.unsubscribeUrl) {
-        toast.error("No unsubscribe link found");
-        setProcessingEmailId(null);
-        return;
-      }
-
-      const unsubscribeInfo = linkData.unsubscribeLinks[0];
-
-      // Step 2: Execute unsubscribe
-      const { data: execData, error: execError } = await supabase.functions.invoke(
-        "execute-unsubscribe",
-        {
-          body: {
-            unsubscribes: [{
-              id: email.id,
-              url: unsubscribeInfo.unsubscribeUrl,
-              method: unsubscribeInfo.method,
-            }],
-          },
-        }
-      );
-
-      if (execError || !execData?.results?.[0]?.success) {
-        toast.error("Failed to unsubscribe");
-        setProcessingEmailId(null);
-        return;
-      }
-
-      // Save for undo
-      const previousEmails = [...emails];
-      
-      // Remove email immediately
-      const updatedEmails = emails.filter(e => e.id !== id);
-      setEmails(updatedEmails);
-      
-      // Show success toast with undo
-      toast.success(`Unsubscribed from ${sender}`, {
-        duration: 5000,
-        action: {
-          label: "Undo",
-          onClick: () => {
-            setEmails(previousEmails);
-            toast.info("Unsubscribe undone");
-          },
-        },
-      });
-      
-    } catch (error) {
-      console.error("Unsubscribe error:", error);
-      toast.error("Failed to unsubscribe");
-    } finally {
-      setProcessingEmailId(null);
+    if (!accessToken) {
+      throw new Error('No access token available');
     }
-  };
+
+    // Extract Gmail message ID from email.id
+    const gmailId = email.id.split('-')[0];
+
+    // Fetch the full email to get headers
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=full`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch email details');
+    }
+
+    const emailData = await response.json();
+    
+    // Find List-Unsubscribe header
+    const headers = emailData.payload.headers;
+    const unsubscribeHeader = headers.find(
+      (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
+    );
+
+    if (!unsubscribeHeader) {
+      toast.error('No unsubscribe link found in this email');
+      return;
+    }
+
+    // Extract unsubscribe URL (remove < > brackets if present)
+    let unsubscribeUrl = unsubscribeHeader.value
+      .replace(/[<>]/g, '')
+      .split(',')[0]
+      .trim();
+
+    // Handle mailto: links
+    if (unsubscribeUrl.startsWith('mailto:')) {
+      toast.info('Please unsubscribe manually via email', {
+        description: 'Opening your email client...',
+      });
+      window.open(unsubscribeUrl);
+      return;
+    }
+
+    // Handle HTTP/HTTPS links
+    if (unsubscribeUrl.startsWith('http')) {
+      // Open in new tab
+      window.open(unsubscribeUrl, '_blank');
+      
+      // Update UI optimistically
+      const updatedEmails = emails.map(e => 
+        e.sender === email.sender 
+          ? { ...e, action: 'unsubscribe' as EmailAction }
+          : e
+      );
+      setEmails(updatedEmails);
+
+      toast.success(`Opening unsubscribe page for ${email.sender}`, {
+        description: 'Please complete the unsubscribe process on the opened page',
+        duration: 5000,
+      });
+    } else {
+      toast.error('Unsupported unsubscribe format');
+    }
+
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    toast.error('Failed to unsubscribe. Please try manually.');
+  }
+};
 
   const handleClean = async () => {
     const keepCount = emails.filter((e) => e.action === "keep").length;
