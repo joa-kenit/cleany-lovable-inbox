@@ -482,11 +482,6 @@ const handleUnsubscribe = async (email: Email) => {
     toast.error('Failed to find unsubscribe link. Try manually.');
   }
 };
-  } catch (error) {
-    console.error('Error unsubscribing:', error);
-    toast.error('Failed to unsubscribe. Please try manually.');
-  }
-};
 
   const handleClean = async () => {
     const keepCount = emails.filter((e) => e.action === "keep").length;
