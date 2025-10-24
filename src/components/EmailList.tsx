@@ -383,18 +383,15 @@ const handleImmediateDelete = async (id: string, sender: string) => {
 
 const handleUnsubscribe = async (email: Email) => {
   try {
-    // Get the access token
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.provider_token;
-
+    
     if (!accessToken) {
       throw new Error('No access token available');
     }
 
-    // Extract Gmail message ID
     const gmailId = email.id.split('-')[0];
-
-    // Fetch the full email with headers AND body
+    
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=full`,
       {
@@ -411,45 +408,35 @@ const handleUnsubscribe = async (email: Email) => {
     const emailData = await response.json();
     const headers = emailData.payload.headers;
     
-    // Method 1: Check List-Unsubscribe header
     const listUnsubHeader = headers.find(
       (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
     );
 
-    // Method 2: Check List-Unsubscribe-Post header (newer standard)
-    const listUnsubPostHeader = headers.find(
-      (h: any) => h.name.toLowerCase() === 'list-unsubscribe-post'
-    );
-
     let unsubscribeUrl = null;
 
-    // Try List-Unsubscribe header first
     if (listUnsubHeader) {
       const value = listUnsubHeader.value.replace(/[<>]/g, '').trim();
-      // Split by comma and find HTTP link (prefer HTTP over mailto)
-      const links = value.split(',').map(l => l.trim());
-      unsubscribeUrl = links.find(l => l.startsWith('http')) || links[0];
+      const links = value.split(',').map((l: string) => l.trim());
+      unsubscribeUrl = links.find((l: string) => l.startsWith('http')) || links[0];
     }
 
-    // Method 3: Search email body for unsubscribe links
     if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
       const bodyPart = emailData.payload.parts?.find(
         (p: any) => p.mimeType === 'text/html' || p.mimeType === 'text/plain'
       ) || emailData.payload;
 
       if (bodyPart.body?.data) {
-        // Decode base64 body
         const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
         
-        // Look for common unsubscribe link patterns
-        const unsubscribePatterns = [
-          /href=["'](https?:\/\/[^"']*unsubscribe[^"']*)["']/i,
-          /href=["'](https?:\/\/[^"']*opt-out[^"']*)["']/i,
-          /href=["'](https?:\/\/[^"']*remove[^"']*)["']/i,
+        const unsubPatterns = [
+          'href="(https?://[^"]*unsubscribe[^"]*)"',
+          'href="(https?://[^"]*opt-out[^"]*)"',
+          'href="(https?://[^"]*remove[^"]*)"'
         ];
 
-        for (const pattern of unsubscribePatterns) {
-          const match = decodedBody.match(pattern);
+        for (const patternStr of unsubPatterns) {
+          const regex = new RegExp(patternStr, 'i');
+          const match = decodedBody.match(regex);
           if (match && match[1]) {
             unsubscribeUrl = match[1];
             break;
@@ -458,7 +445,6 @@ const handleUnsubscribe = async (email: Email) => {
       }
     }
 
-    // If still no link found
     if (!unsubscribeUrl) {
       toast.error('No unsubscribe link found', {
         description: 'Try manually searching the email for an unsubscribe link',
@@ -467,18 +453,15 @@ const handleUnsubscribe = async (email: Email) => {
       return;
     }
 
-    // Handle mailto: links
     if (unsubscribeUrl.startsWith('mailto:')) {
       window.open(unsubscribeUrl);
       toast.info('Opening email client to unsubscribe');
       return;
     }
 
-    // Handle HTTP/HTTPS links
     if (unsubscribeUrl.startsWith('http')) {
       window.open(unsubscribeUrl, '_blank');
       
-      // Update UI
       const updatedEmails = emails.map(e => 
         e.sender === email.sender 
           ? { ...e, action: 'unsubscribe' as EmailAction }
