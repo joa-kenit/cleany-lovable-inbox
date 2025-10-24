@@ -391,10 +391,10 @@ const handleUnsubscribe = async (email: Email) => {
       throw new Error('No access token available');
     }
 
-    // Extract Gmail message ID from email.id
+    // Extract Gmail message ID
     const gmailId = email.id.split('-')[0];
 
-    // Fetch the full email to get headers
+    // Fetch the full email with headers AND body
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=full`,
       {
@@ -409,39 +409,76 @@ const handleUnsubscribe = async (email: Email) => {
     }
 
     const emailData = await response.json();
-    
-    // Find List-Unsubscribe header
     const headers = emailData.payload.headers;
-    const unsubscribeHeader = headers.find(
+    
+    // Method 1: Check List-Unsubscribe header
+    const listUnsubHeader = headers.find(
       (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
     );
 
-    if (!unsubscribeHeader) {
-      toast.error('No unsubscribe link found in this email');
+    // Method 2: Check List-Unsubscribe-Post header (newer standard)
+    const listUnsubPostHeader = headers.find(
+      (h: any) => h.name.toLowerCase() === 'list-unsubscribe-post'
+    );
+
+    let unsubscribeUrl = null;
+
+    // Try List-Unsubscribe header first
+    if (listUnsubHeader) {
+      const value = listUnsubHeader.value.replace(/[<>]/g, '').trim();
+      // Split by comma and find HTTP link (prefer HTTP over mailto)
+      const links = value.split(',').map(l => l.trim());
+      unsubscribeUrl = links.find(l => l.startsWith('http')) || links[0];
+    }
+
+    // Method 3: Search email body for unsubscribe links
+    if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
+      const bodyPart = emailData.payload.parts?.find(
+        (p: any) => p.mimeType === 'text/html' || p.mimeType === 'text/plain'
+      ) || emailData.payload;
+
+      if (bodyPart.body?.data) {
+        // Decode base64 body
+        const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+        
+        // Look for common unsubscribe link patterns
+        const unsubscribePatterns = [
+          /href=["'](https?:\/\/[^"']*unsubscribe[^"']*)["']/i,
+          /href=["'](https?:\/\/[^"']*opt-out[^"']*)["']/i,
+          /href=["'](https?:\/\/[^"']*remove[^"']*)["']/i,
+        ];
+
+        for (const pattern of unsubscribePatterns) {
+          const match = decodedBody.match(pattern);
+          if (match && match[1]) {
+            unsubscribeUrl = match[1];
+            break;
+          }
+        }
+      }
+    }
+
+    // If still no link found
+    if (!unsubscribeUrl) {
+      toast.error('No unsubscribe link found', {
+        description: 'Try manually searching the email for an unsubscribe link',
+        duration: 5000,
+      });
       return;
     }
 
-    // Extract unsubscribe URL (remove < > brackets if present)
-    let unsubscribeUrl = unsubscribeHeader.value
-      .replace(/[<>]/g, '')
-      .split(',')[0]
-      .trim();
-
     // Handle mailto: links
     if (unsubscribeUrl.startsWith('mailto:')) {
-      toast.info('Please unsubscribe manually via email', {
-        description: 'Opening your email client...',
-      });
       window.open(unsubscribeUrl);
+      toast.info('Opening email client to unsubscribe');
       return;
     }
 
     // Handle HTTP/HTTPS links
     if (unsubscribeUrl.startsWith('http')) {
-      // Open in new tab
       window.open(unsubscribeUrl, '_blank');
       
-      // Update UI optimistically
+      // Update UI
       const updatedEmails = emails.map(e => 
         e.sender === email.sender 
           ? { ...e, action: 'unsubscribe' as EmailAction }
@@ -450,13 +487,18 @@ const handleUnsubscribe = async (email: Email) => {
       setEmails(updatedEmails);
 
       toast.success(`Opening unsubscribe page for ${email.sender}`, {
-        description: 'Please complete the unsubscribe process on the opened page',
+        description: 'Complete the process on the opened page',
         duration: 5000,
       });
     } else {
       toast.error('Unsupported unsubscribe format');
     }
 
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    toast.error('Failed to find unsubscribe link. Try manually.');
+  }
+};
   } catch (error) {
     console.error('Error unsubscribing:', error);
     toast.error('Failed to unsubscribe. Please try manually.');
