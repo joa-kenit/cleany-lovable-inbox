@@ -382,7 +382,7 @@ const handleImmediateDelete = async (id: string, sender: string) => {
   }
 };
 
-const handleImmediateUnsubscribe = async (email: Email) => {
+const handleUnsubscribe = async (email: Email) => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.provider_token;
@@ -660,7 +660,7 @@ const handleImmediateUnsubscribe = async (email: Email) => {
               email={email}
               onActionChange={handleActionChange}
               onDelete={handleImmediateDelete}
-              onUnsubscribe={handleImmediateUnsubscribe}
+              onUnsubscribe={handleUnsubscribe}
               emailCount={email.emailCount}
               isProcessing={processingEmailId === email.id}
             />
