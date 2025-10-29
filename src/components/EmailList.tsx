@@ -382,8 +382,16 @@ const handleImmediateDelete = async (id: string, sender: string) => {
   }
 };
 
-const handleUnsubscribe = async (email: Email) => {
+const handleUnsubscribe = async (id: string, sender: string) => {
+  setProcessingEmailId(id);
+  
   try {
+    const email = emails.find(e => e.id === id);
+    if (!email) {
+      toast.error('Email not found');
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.provider_token;
     
@@ -464,13 +472,13 @@ const handleUnsubscribe = async (email: Email) => {
       window.open(unsubscribeUrl, '_blank');
       
       const updatedEmails = emails.map(e => 
-        e.sender === email.sender 
+        e.sender === sender 
           ? { ...e, action: 'unsubscribe' as EmailAction }
           : e
       );
       setEmails(updatedEmails);
 
-      toast.success(`Opening unsubscribe page for ${email.sender}`, {
+      toast.success(`Opening unsubscribe page for ${sender}`, {
         description: 'Complete the process on the opened page',
         duration: 5000,
       });
@@ -479,8 +487,10 @@ const handleUnsubscribe = async (email: Email) => {
     }
 
   } catch (error) {
-    console.error('Error unsubscribing:', error);
-    toast.error('Failed to find unsubscribe link. Try manually.');
+    console.error('Error:', error);
+    toast.error('Failed to unsubscribe');
+  } finally {
+    setProcessingEmailId(null);
   }
 };
 
