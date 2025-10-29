@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
-// Force rebuild - fix handleImmediateUnsubscribe issue
+
 export interface Email {
   id: string;
   sender: string;
@@ -660,7 +660,7 @@ const handleUnsubscribe = async (email: Email) => {
               email={email}
               onActionChange={handleActionChange}
               onDelete={handleImmediateDelete}
-              onUnsubscribe={handleUnsubscribe}
+              onUnsubscribe={handleImmediateUnsubscribe}
               emailCount={email.emailCount}
               isProcessing={processingEmailId === email.id}
             />
