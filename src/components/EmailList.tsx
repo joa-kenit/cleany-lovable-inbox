@@ -382,7 +382,7 @@ const handleImmediateDelete = async (id: string, sender: string) => {
   }
 };
 
-const handleUnsubscribe = async (id: string, sender: string) => {
+const handleImmediateUnsubscribe = async (id: string, sender: string) => {
   setProcessingEmailId(id);
   
   try {
@@ -670,7 +670,7 @@ const handleUnsubscribe = async (id: string, sender: string) => {
               email={email}
               onActionChange={handleActionChange}
               onDelete={handleImmediateDelete}
-              onUnsubscribe={handleUnsubscribe}
+              onUnsubscribe={handleImmediateUnsubscribe}
               emailCount={email.emailCount}
               isProcessing={processingEmailId === email.id}
             />
