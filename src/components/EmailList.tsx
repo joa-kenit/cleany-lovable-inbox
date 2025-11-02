@@ -481,6 +481,41 @@ if (unsubscribeUrl && !unsubscribeKeywords.test(unsubscribeUrl)) {
   }
 }
 
+// 🧩 EXTRA SAFETY: Detect expired or tokenized unsubscribe links
+if (unsubscribeUrl) {
+  // 1️Skip obvious temporary unsubscribe links (contain tokens)
+  if (unsubscribeUrl.includes("token=")) {
+    console.warn("[Unsubscribe Debug] Tokenized unsubscribe link likely expired, skipping:", unsubscribeUrl);
+    unsubscribeUrl = null;
+  } else {
+    try {
+      const res = await fetch(unsubscribeUrl);
+      const text = await res.text();
+
+      // 2Detect pages indicating expired/invalid unsubscribe links
+      if (/expired|invalid|oops/i.test(text)) {
+        console.warn("[Unsubscribe Debug] Link appears expired:", unsubscribeUrl);
+        unsubscribeUrl = null;
+      }
+    } catch (err) {
+      console.warn("[Unsubscribe Debug] Fetch error:", err.message);
+    }
+  }
+}
+
+//  3Fallback: try "List-Unsubscribe" header if available
+if (!unsubscribeUrl && emailData?.payload?.headers) {
+  const listHeader = emailData.payload.headers.find(h => h.name === "List-Unsubscribe");
+  if (listHeader && listHeader.value.includes("https")) {
+    const match = listHeader.value.match(/https?:\/\/[^\s<>]+/i);
+    if (match) {
+      unsubscribeUrl = match[0];
+      console.log("[Unsubscribe Debug] Using List-Unsubscribe header link:", unsubscribeUrl);
+    }
+  }
+}
+
+
       }
     }
 
