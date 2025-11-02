@@ -442,20 +442,39 @@ const handleImmediateUnsubscribe = async (id: string, sender: string) => {
   console.log('[Unsubscribe Debug] Searching for unsubscribe links...');
   console.log('[Unsubscribe Debug] Body preview:', decodedBody.substring(0, 500));
         
-        const unsubPatterns = [
-          'href="(https?://[^"]*unsubscribe[^"]*)"',
-          'href="(https?://[^"]*opt-out[^"]*)"',
-          'href="(https?://[^"]*remove[^"]*)"'
-        ];
+// UNIVERSAL UNSUBSCRIBE DETECTOR
+const linkRegex = /https?:\/\/[^\s"'<>]+/gi;
+const allLinks = decodedBody.match(linkRegex) || [];
 
-        for (const patternStr of unsubPatterns) {
-          const regex = new RegExp(patternStr, 'i');
-          const match = decodedBody.match(regex);
-          if (match && match[1]) {
-            unsubscribeUrl = match[1];
-            break;
-          }
-        }
+const unsubscribeKeywords = /(unsubscribe|opt.?out|remove|manage.?pref|notification|v=off|optin=0)/i;
+const knownRedirectors = /(link\.|click\.|email\.|u\.|campaign\.)/i;
+
+let unsubscribeCandidates = allLinks.filter(
+  link =>
+    unsubscribeKeywords.test(link) ||
+    knownRedirectors.test(link)
+);
+
+console.log("[Unsubscribe Debug] All links found:", allLinks.length);
+console.log("[Unsubscribe Debug] Unsubscribe candidates:", unsubscribeCandidates);
+
+for (const link of unsubscribeCandidates) {
+  if (unsubscribeKeywords.test(link)) {
+    unsubscribeUrl = link;
+    break;
+  }
+}
+
+// Optional: follow redirects to confirm
+if (unsubscribeUrl && !unsubscribeKeywords.test(unsubscribeUrl)) {
+  try {
+    const res = await fetch(unsubscribeUrl, { method: "HEAD", redirect: "follow" });
+    if (unsubscribeKeywords.test(res.url)) unsubscribeUrl = res.url;
+  } catch (err) {
+    console.warn("Redirect check failed:", err.message);
+  }
+}
+
       }
     }
 
