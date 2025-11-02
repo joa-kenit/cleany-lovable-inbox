@@ -475,9 +475,18 @@ if (!unsubscribeUrl && unsubscribeCandidates.length > 0) {
 if (unsubscribeUrl && !unsubscribeKeywords.test(unsubscribeUrl)) {
   try {
     const res = await fetch(unsubscribeUrl, { method: "HEAD", redirect: "follow" });
-    if (unsubscribeKeywords.test(res.url)) unsubscribeUrl = res.url;
-  } catch (err) {
-    console.warn("Redirect check failed:", err.message);
+    if (unsubscribeKeywords.test(res.url)) {
+      unsubscribeUrl = res.url;
+      console.log("[Unsubscribe Debug] Confirmed final unsubscribe URL:", unsubscribeUrl);
+    }
+  } catch (err: any) {
+    const msg = err.message || "";
+    // Gracefully handle CORS blocks and network errors
+    if (msg.includes("Failed to fetch") || msg.includes("CORS") || msg.includes("NetworkError")) {
+      console.warn("[Unsubscribe Debug] Skipping link due to CORS restriction:", unsubscribeUrl);
+    } else {
+      console.warn("[Unsubscribe Debug] Redirect check failed:", msg);
+    }
   }
 }
 
