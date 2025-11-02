@@ -465,6 +465,12 @@ for (const link of unsubscribeCandidates) {
   }
 }
 
+// fallback: if nothing matched but we found candidates, take the first one
+if (!unsubscribeUrl && unsubscribeCandidates.length > 0) {
+  unsubscribeUrl = unsubscribeCandidates[0];
+  console.log("[Unsubscribe Debug] Using fallback unsubscribe link:", unsubscribeUrl);
+}
+
 // Optional: follow redirects to confirm
 if (unsubscribeUrl && !unsubscribeKeywords.test(unsubscribeUrl)) {
   try {
