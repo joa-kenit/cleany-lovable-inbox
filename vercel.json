@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/auth/(.*)",
+      "destination": "https://yvvyjutubjumjxoculisw.supabase.co/auth/$1"
+    }
+  ]
+}
