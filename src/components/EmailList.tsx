@@ -436,6 +436,11 @@ const handleImmediateUnsubscribe = async (id: string, sender: string) => {
 
       if (bodyPart.body?.data) {
         const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+  
+  // DEBUG: Log the decoded body to see what we're working with
+  console.log('[Unsubscribe Debug] Email body length:', decodedBody.length);
+  console.log('[Unsubscribe Debug] Searching for unsubscribe links...');
+  console.log('[Unsubscribe Debug] Body preview:', decodedBody.substring(0, 500));
         
         const unsubPatterns = [
           'href="(https?://[^"]*unsubscribe[^"]*)"',
