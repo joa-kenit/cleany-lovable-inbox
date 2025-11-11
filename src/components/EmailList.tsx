@@ -12,6 +12,18 @@ import { Sparkles, Loader2, Brain, LogOut, Undo } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+function decodeBase64Utf8(str: string) {
+  try {
+    return decodeURIComponent(
+      escape(atob(str.replace(/-/g, '+').replace(/_/g, '/')))
+    );
+  } catch (e) {
+    console.warn("UTF-8 decoding failed, falling back to plain base64:", e);
+    return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  }
+}
+
+
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
 
 export interface Email {
@@ -518,7 +530,7 @@ if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
   ) || emailData.payload;
 
   if (bodyPart.body?.data) {
-    const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+    const decodedBody = decodeBase64Utf8(bodyPart.body.data);
 
   
   // DEBUG: Log the decoded body to see what we're working with
