@@ -747,6 +747,31 @@ if (!unsubscribeUrl && emailData?.payload?.headers) {
 
   const actionsSelected = emails.some((e) => e.action !== null);
 
+  // Helper: filter out system or transactional emails
+const SYSTEM_DOMAINS = [
+  "google.com", "gmail.com", "paypal.com", "amazon.com", "apple.com",
+  "microsoft.com", "github.com", "linkedin.com", "facebook.com", "x.com",
+  "twitter.com", "instagram.com", "bankofamerica.com", "chase.com",
+  "wellsfargo.com", "stripe.com", "notion.so", "openai.com",
+  "supabase.io", "vercel.com"
+];
+
+const SYSTEM_KEYWORDS = [
+  "security alert", "password", "verification code", "two-factor",
+  "receipt", "invoice", "payment", "order confirmation",
+  "purchase", "login", "notification", "access granted"
+];
+
+const isSystemEmail = (email: any) => {
+  const senderDomain = email.sender?.split("@")[1]?.toLowerCase() || "";
+  const subject = email.subject?.toLowerCase() || "";
+  return (
+    SYSTEM_DOMAINS.some((d) => senderDomain.includes(d)) ||
+    SYSTEM_KEYWORDS.some((k) => subject.includes(k))
+  );
+};
+
+  
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
@@ -802,17 +827,25 @@ if (!unsubscribeUrl && emailData?.payload?.headers) {
         </div>
       ) : (
         <div className="space-y-3 mb-8">
-          {displayEmails.map((email) => (
-            <EmailCard
-              key={email.id}
-              email={email}
-              onActionChange={handleActionChange}
-              onDelete={handleImmediateDelete}
-              onUnsubscribe={handleImmediateUnsubscribe}
-              emailCount={email.emailCount}
-              isProcessing={processingEmailId === email.id}
-            />
-          ))}
+{displayEmails
+  // filter out system/transactional emails from showing "unsubscribe"
+  .map((email) => {
+    const hideUnsubscribe = isSystemEmail(email);
+    return (
+      <EmailCard
+        key={email.id}
+        email={email}
+        onActionChange={handleActionChange}
+        onDelete={handleImmediateDelete}
+        // pass a flag to EmailCard so it knows to hide the button
+        onUnsubscribe={handleImmediateUnsubscribe}
+        emailCount={email.emailCount}
+        isProcessing={processingEmailId === email.id}
+        hideUnsubscribe={hideUnsubscribe}
+      />
+    );
+  })}
+
         </div>
       )}
 
