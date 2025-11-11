@@ -96,7 +96,7 @@ export const EmailList = () => {
       const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
         body: { 
           providerToken,
-          maxResults: 20 
+          maxResults: 200  // Increased to fetch more emails
         },
       });
 
@@ -918,7 +918,7 @@ const isSystemEmail = (email: any) => {
         </div>
       )}
 
-      {displayEmails.length > 0 && (
+      {paginatedEmails.length > 0 && (
         <div className="sticky bottom-8 bg-card border rounded-xl p-6 shadow-lg">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-muted-foreground">
