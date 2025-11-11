@@ -194,26 +194,26 @@ export const EmailList = () => {
 
   const filteredEmails = getFilteredEmails();
 
-  // Group emails by sender and keep only the most recent one
+  // Group emails by sender and keep ALL emails from each sender
   const groupedEmails = filteredEmails.reduce((acc, email) => {
     const sender = email.sender;
     if (!acc[sender]) {
-      acc[sender] = { email, count: 1 };
+      acc[sender] = [email];
     } else {
-      // Keep the most recent (assuming later in array = more recent)
-      acc[sender] = { email, count: acc[sender].count + 1 };
+      acc[sender].push(email);
     }
     return acc;
-  }, {} as Record<string, { email: Email; count: number }>);
+  }, {} as Record<string, Email[]>);
 
-  let displayEmails = Object.values(groupedEmails).map(({ email, count }) => ({
-    ...email,
-    emailCount: count,
+  let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => ({
+    sender,
+    emails: senderEmails,
+    emailCount: senderEmails.length,
   }));
 
   // Sort by frequency if "most-frequent" tab is selected
   if (filterTab === "most-frequent") {
-    displayEmails = displayEmails.sort((a, b) => (b.emailCount || 0) - (a.emailCount || 0));
+    displayEmails = displayEmails.sort((a, b) => b.emailCount - a.emailCount);
   }
 
   useEffect(() => {
@@ -827,25 +827,23 @@ const isSystemEmail = (email: any) => {
         </div>
       ) : (
         <div className="space-y-3 mb-8">
-{displayEmails
-  // filter out system/transactional emails from showing "unsubscribe"
-  .map((email) => {
-    const hideUnsubscribe = isSystemEmail(email);
-    return (
-      <EmailCard
-        key={email.id}
-        email={email}
-        onActionChange={handleActionChange}
-        onDelete={handleImmediateDelete}
-        // pass a flag to EmailCard so it knows to hide the button
-        onUnsubscribe={handleImmediateUnsubscribe}
-        emailCount={email.emailCount}
-        isProcessing={processingEmailId === email.id}
-        hideUnsubscribe={hideUnsubscribe}
-      />
-    );
-  })}
-
+          {displayEmails.map((group) => {
+            const firstEmail = group.emails[0];
+            const hideUnsubscribe = isSystemEmail(firstEmail);
+            return (
+              <EmailCard
+                key={group.sender}
+                emails={group.emails}
+                sender={group.sender}
+                onActionChange={handleActionChange}
+                onDelete={handleImmediateDelete}
+                onUnsubscribe={handleImmediateUnsubscribe}
+                emailCount={group.emailCount}
+                isProcessing={processingEmailId === firstEmail.id}
+                hideUnsubscribe={hideUnsubscribe}
+              />
+            );
+          })}
         </div>
       )}
 

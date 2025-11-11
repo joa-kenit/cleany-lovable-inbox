@@ -1,35 +1,62 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Trash2, UserX, Check, Sparkles, Loader2 } from "lucide-react";
+import { Trash2, UserX, Check, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Email, EmailAction } from "./EmailList";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface EmailCardProps {
-  email: Email;
+  emails: Email[];
+  sender: string;
   onActionChange: (id: string, action: EmailAction) => void;
   onDelete?: (id: string, sender: string) => void;
   onUnsubscribe?: (id: string, sender: string) => void;
-  emailCount?: number;
+  emailCount: number;
   isProcessing?: boolean;
   hideUnsubscribe?: boolean;
 }
-  
 
-export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emailCount, isProcessing, hideUnsubscribe }: EmailCardProps) => {
-  const getActionButton = (action: EmailAction, currentAction: EmailAction) => {
-    const isSelected = email.action === action;
+// Helper function to format time ago
+const getTimeAgo = (dateString?: string): string => {
+  if (!dateString) return "Recently";
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInDays === 0) return "Today";
+  if (diffInDays === 1) return "1 day ago";
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+  if (diffInDays < 30) {
+    const weeks = Math.floor(diffInDays / 7);
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+  }
+  const months = Math.floor(diffInDays / 30);
+  return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+};
+
+export const EmailCard = ({ 
+  emails, 
+  sender, 
+  onActionChange, 
+  onDelete, 
+  onUnsubscribe, 
+  emailCount, 
+  isProcessing, 
+  hideUnsubscribe 
+}: EmailCardProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const firstEmail = emails[0];
+  const latestEmails = emails.slice(0, 5); // Show only latest 5
+
+  const currentAction = firstEmail.action;
+  
+  const getActionButton = (action: EmailAction) => {
+    const isSelected = currentAction === action;
     
     const variants = {
-      keep: {
-        icon: isSelected ? Check : Mail,
-        className: cn(
-          "border-2 transition-all",
-          isSelected
-            ? "bg-success text-success-foreground border-success shadow-md"
-            : "border-success/20 text-success hover:bg-success/10"
-        ),
-        label: "Keep",
-      },
       delete: {
         icon: isSelected ? Check : Trash2,
         className: cn(
@@ -52,7 +79,7 @@ export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emai
       },
     };
 
-    if (!action) return null;
+    if (!action || action === 'keep') return null;
 
     const config = variants[action];
     const Icon = config.icon;
@@ -65,11 +92,11 @@ export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emai
         className={config.className}
         onClick={() => {
           if (action === 'delete' && onDelete) {
-            onDelete(email.id, email.sender);
+            onDelete(firstEmail.id, sender);
           } else if (action === 'unsubscribe' && onUnsubscribe) {
-            onUnsubscribe(email.id, email.sender);
+            onUnsubscribe(firstEmail.id, sender);
           } else {
-            onActionChange(email.id, isSelected ? null : action);
+            onActionChange(firstEmail.id, isSelected ? null : action);
           }
         }}
         disabled={isProcessing}
@@ -84,70 +111,83 @@ export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emai
     );
   };
 
-  const getActionLabel = (action: EmailAction) => {
-    if (action === "keep") return "Keep";
-    if (action === "delete") return "Delete";
-    if (action === "unsubscribe") return "Unsubscribe";
-    return "";
-  };
-
   return (
     <div
       className={cn(
-        "bg-card border rounded-xl p-4 shadow-sm hover:shadow-md transition-all",
-        email.action && "ring-2 ring-primary/20"
+        "bg-card border rounded-lg shadow-sm hover:shadow-md transition-all",
+        currentAction && "ring-2 ring-primary/20"
       )}
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="font-medium text-sm text-muted-foreground truncate">
-                {email.sender}
-              </div>
-              {emailCount && emailCount > 1 && (
-                <Badge variant="secondary" className="text-xs">
-                  {emailCount} emails
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            {/* Sender Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-base truncate">{sender.split('<')[0].trim()}</h3>
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {emailCount} {emailCount === 1 ? 'email' : 'emails'}
                 </Badge>
-              )}
+              </div>
+              <p className="text-sm text-muted-foreground truncate">
+                {sender.includes('<') ? sender.match(/<(.+)>/)?.[1] : sender}
+              </p>
             </div>
-            <h3 className="font-semibold mb-1 truncate">{email.subject}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {email.snippet}
-            </p>
-          </div>
 
-          <div className="flex sm:flex-col gap-2 flex-wrap sm:flex-nowrap">
-            {getActionButton("keep", email.action)}
-            {getActionButton("delete", email.action)}
-            {!hideUnsubscribe && getActionButton("unsubscribe", email.action)}
+            {/* Action Buttons */}
+            <div className="flex gap-2 shrink-0">
+              {getActionButton("delete")}
+              {!hideUnsubscribe && getActionButton("unsubscribe")}
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0"
+                >
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
           </div>
         </div>
 
-        {email.aiSuggestion && (
-          <div className="flex items-start gap-2 bg-primary/5 border border-primary/10 rounded-lg p-3">
-            <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-sm font-medium">AI suggests:</span>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    email.aiSuggestion.action === "keep" && "bg-success/10 text-success border-success/20",
-                    email.aiSuggestion.action === "delete" && "bg-destructive/10 text-destructive border-destructive/20",
-                    email.aiSuggestion.action === "unsubscribe" && "bg-warning/10 text-warning border-warning/20"
-                  )}
+        {/* Expandable Email List */}
+        <CollapsibleContent>
+          <div className="border-t bg-muted/30">
+            <div className="divide-y divide-border/50">
+              {latestEmails.map((email, index) => (
+                <div 
+                  key={email.id} 
+                  className="px-4 py-3 hover:bg-muted/50 transition-colors"
                 >
-                  {getActionLabel(email.aiSuggestion.action)}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {email.aiSuggestion.reason}
-              </p>
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-muted-foreground shrink-0 min-w-[80px]">
+                      {getTimeAgo(email.date)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate mb-0.5">
+                        {email.subject}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {email.snippet}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+            {emails.length > 5 && (
+              <div className="px-4 py-2 text-center text-xs text-muted-foreground border-t">
+                +{emails.length - 5} more emails
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
