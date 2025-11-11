@@ -190,8 +190,8 @@ export const EmailList = () => {
       case "most-frequent":
         return emails; // Will be sorted after grouping
       case "all-time":
-        // Show all subscription emails (those with unsubscribe links)
-        return emails.filter(isNewsletterEmail);
+        // Show all emails regardless of date
+        return emails;
       default:
         return emails;
     }
