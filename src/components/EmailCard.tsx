@@ -11,9 +11,11 @@ interface EmailCardProps {
   onUnsubscribe?: (id: string, sender: string) => void;
   emailCount?: number;
   isProcessing?: boolean;
+  hideUnsubscribe?: boolean;
 }
+  
 
-export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emailCount, isProcessing }: EmailCardProps) => {
+export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emailCount, isProcessing, hideUnsubscribe }: EmailCardProps) => {
   const getActionButton = (action: EmailAction, currentAction: EmailAction) => {
     const isSelected = email.action === action;
     
@@ -118,7 +120,7 @@ export const EmailCard = ({ email, onActionChange, onDelete, onUnsubscribe, emai
           <div className="flex sm:flex-col gap-2 flex-wrap sm:flex-nowrap">
             {getActionButton("keep", email.action)}
             {getActionButton("delete", email.action)}
-            {getActionButton("unsubscribe", email.action)}
+            {!hideUnsubscribe && getActionButton("unsubscribe", email.action)}
           </div>
         </div>
 
