@@ -14,9 +14,14 @@ import { useNavigate } from "react-router-dom";
 
 function decodeBase64Utf8(str: string) {
   try {
-    return decodeURIComponent(
+    const decoded = decodeURIComponent(
       escape(atob(str.replace(/-/g, '+').replace(/_/g, '/')))
     );
+
+    // 🧩 Fix for HTML entities (like &amp;, &nbsp;, etc.)
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(decoded, "text/html");
+    return doc.documentElement.textContent || decoded;
   } catch (e) {
     console.warn("UTF-8 decoding failed, falling back to plain base64:", e);
     return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
