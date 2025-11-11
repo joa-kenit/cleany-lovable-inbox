@@ -414,39 +414,10 @@ const handleImmediateUnsubscribe = async (id: string, sender: string) => {
       throw new Error('Failed to fetch email details');
     }
 
-    const emailData = await response.json();
-    const headers = emailData.payload.headers;
+const emailData = await response.json();
+const headers = emailData.payload.headers;
 
-    // 🧠 Step 3: Hide unsubscribe button for system/transactional emails
-const senderDomain = emailData?.payload?.headers
-  ?.find((h: any) => h.name.toLowerCase() === 'from')
-  ?.value?.split('@')[1]
-  ?.toLowerCase();
-
-const subject =
-  emailData?.payload?.headers?.find(
-    (h: any) => h.name.toLowerCase() === 'subject'
-  )?.value || "";
-
-const isSystemEmail =
-  SYSTEM_DOMAINS.some(domain => senderDomain?.includes(domain)) ||
-  SYSTEM_KEYWORDS.some(keyword =>
-    subject.toLowerCase().includes(keyword)
-  );
-
-if (isSystemEmail) {
-  console.log("🧠 Skipping unsubscribe for system email:", senderDomain);
-  toast.info("Skipping unsubscribe: this looks like a system email");
-  return; // 🚀 Important: stop execution here
-}
-
-    
-    const listUnsubHeader = headers.find(
-      (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
-    );
-
-    let unsubscribeUrl = null;
-// Step 2: Define protected senders & keywords
+// 🧩 Step 1: Define protected system senders & keywords FIRST
 const SYSTEM_DOMAINS = [
   "google.com",
   "gmail.com",
@@ -484,19 +455,51 @@ const SYSTEM_KEYWORDS = [
   "notification",
   "access granted"
 ];
-    if (listUnsubHeader) {
-      const value = listUnsubHeader.value.replace(/[<>]/g, '').trim();
-      const links = value.split(',').map((l: string) => l.trim());
-      unsubscribeUrl = links.find((l: string) => l.startsWith('http')) || links[0];
-    }
 
-    if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
-      const bodyPart = emailData.payload.parts?.find(
-        (p: any) => p.mimeType === 'text/html' || p.mimeType === 'text/plain'
-      ) || emailData.payload;
+// 🧠 Step 2: Skip unsubscribe for system/transactional emails
+const senderDomain = emailData?.payload?.headers
+  ?.find((h: any) => h.name.toLowerCase() === 'from')
+  ?.value?.split('@')[1]
+  ?.toLowerCase();
 
-      if (bodyPart.body?.data) {
-        const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+const subject =
+  emailData?.payload?.headers?.find(
+    (h: any) => h.name.toLowerCase() === 'subject'
+  )?.value || "";
+
+const isSystemEmail =
+  SYSTEM_DOMAINS.some(domain => senderDomain?.includes(domain)) ||
+  SYSTEM_KEYWORDS.some(keyword =>
+    subject.toLowerCase().includes(keyword)
+  );
+
+if (isSystemEmail) {
+  console.log("🧠 Skipping unsubscribe for system email:", senderDomain);
+  toast.info("Skipping unsubscribe: this looks like a system email");
+  return; // 🚀 Stop here — don't process unsubscribe links
+}
+
+// 🧩 Step 3: Continue detecting unsubscribe links
+const listUnsubHeader = headers.find(
+  (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
+);
+
+let unsubscribeUrl = null;
+
+if (listUnsubHeader) {
+  const value = listUnsubHeader.value.replace(/[<>]/g, '').trim();
+  const links = value.split(',').map((l: string) => l.trim());
+  unsubscribeUrl = links.find((l: string) => l.startsWith('http')) || links[0];
+}
+
+if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
+  const bodyPart = emailData.payload.parts?.find(
+    (p: any) => p.mimeType === 'text/html' || p.mimeType === 'text/plain'
+  ) || emailData.payload;
+
+  if (bodyPart.body?.data) {
+    const decodedBody = atob(bodyPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+
   
   // DEBUG: Log the decoded body to see what we're working with
   console.log('[Unsubscribe Debug] Email body length:', decodedBody.length);
