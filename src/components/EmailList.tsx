@@ -416,6 +416,30 @@ const handleImmediateUnsubscribe = async (id: string, sender: string) => {
 
     const emailData = await response.json();
     const headers = emailData.payload.headers;
+
+    // 🧠 Step 3: Hide unsubscribe button for system/transactional emails
+const senderDomain = emailData?.payload?.headers
+  ?.find((h: any) => h.name.toLowerCase() === 'from')
+  ?.value?.split('@')[1]
+  ?.toLowerCase();
+
+const subject =
+  emailData?.payload?.headers?.find(
+    (h: any) => h.name.toLowerCase() === 'subject'
+  )?.value || "";
+
+const isSystemEmail =
+  SYSTEM_DOMAINS.some(domain => senderDomain?.includes(domain)) ||
+  SYSTEM_KEYWORDS.some(keyword =>
+    subject.toLowerCase().includes(keyword)
+  );
+
+if (isSystemEmail) {
+  console.log("🧠 Skipping unsubscribe for system email:", senderDomain);
+  toast.info("Skipping unsubscribe: this looks like a system email");
+  return; // 🚀 Important: stop execution here
+}
+
     
     const listUnsubHeader = headers.find(
       (h: any) => h.name.toLowerCase() === 'list-unsubscribe'
@@ -572,27 +596,6 @@ if (!unsubscribeUrl && emailData?.payload?.headers) {
       });
       return;
     }
-// 🧠 Step 3: Hide unsubscribe button for system/transactional emails
-const senderDomain = emailData?.payload?.headers
-  ?.find((h: any) => h.name.toLowerCase() === 'from')
-  ?.value?.split('@')[1]
-  ?.toLowerCase();
-
-const subject =
-  emailData?.payload?.headers?.find(
-    (h: any) => h.name.toLowerCase() === 'subject'
-  )?.value || "";
-
-const isSystemEmail =
-  SYSTEM_DOMAINS.some(domain => senderDomain?.includes(domain)) ||
-  SYSTEM_KEYWORDS.some(keyword =>
-    subject.toLowerCase().includes(keyword)
-  );
-
-if (isSystemEmail) {
-  console.log("🧠 Skipping unsubscribe for system email:", senderDomain);
-  unsubscribeUrl = null; // stops showing unsubscribe button
-}
 
     if (unsubscribeUrl.startsWith('mailto:')) {
       window.open(unsubscribeUrl);
