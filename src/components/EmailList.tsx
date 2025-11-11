@@ -43,6 +43,8 @@ export const EmailList = () => {
   const [showCleanDialog, setShowCleanDialog] = useState(false);
   const [isCleaningInbox, setIsCleaningInbox] = useState(false);
   const [undoStack, setUndoStack] = useState<Array<{ emails: Email[], action: string }>>([]);
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -187,6 +189,9 @@ export const EmailList = () => {
         return emails.filter(isNewsletterEmail);
       case "most-frequent":
         return emails; // Will be sorted after grouping
+      case "all-time":
+        // Show all subscription emails (those with unsubscribe links)
+        return emails.filter(isNewsletterEmail);
       default:
         return emails;
     }
@@ -215,6 +220,21 @@ export const EmailList = () => {
   if (filterTab === "most-frequent") {
     displayEmails = displayEmails.sort((a, b) => b.emailCount - a.emailCount);
   }
+
+  // Apply pagination for "all-time" tab
+  const paginatedEmails = filterTab === "all-time" 
+    ? displayEmails.slice(0, displayLimit)
+    : displayEmails;
+  
+  const hasMore = filterTab === "all-time" && displayEmails.length > displayLimit;
+
+  const handleLoadMore = () => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayLimit(prev => prev + 20);
+      setIsLoadingMore(false);
+    }, 300);
+  };
 
   useEffect(() => {
     fetchGmailEmails().then(() => {
@@ -810,13 +830,17 @@ const isSystemEmail = (email: any) => {
         </div>
       </div>
 
-      <Tabs value={filterTab} onValueChange={setFilterTab} className="mb-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs value={filterTab} onValueChange={(value) => {
+        setFilterTab(value);
+        setDisplayLimit(20); // Reset pagination when changing tabs
+      }} className="mb-6">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Senders</TabsTrigger>
           <TabsTrigger value="this-week">This Week</TabsTrigger>
           <TabsTrigger value="this-month">This Month</TabsTrigger>
           <TabsTrigger value="newsletters">Newsletters</TabsTrigger>
           <TabsTrigger value="most-frequent">Most Frequent</TabsTrigger>
+          <TabsTrigger value="all-time">All Time</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -827,7 +851,7 @@ const isSystemEmail = (email: any) => {
         </div>
       ) : (
         <div className="space-y-3 mb-8">
-          {displayEmails.map((group) => {
+          {paginatedEmails.map((group) => {
             const firstEmail = group.emails[0];
             const hideUnsubscribe = isSystemEmail(firstEmail);
             return (
@@ -844,6 +868,26 @@ const isSystemEmail = (email: any) => {
               />
             );
           })}
+          
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <Button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                variant="outline"
+                size="lg"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  `Load More (${displayEmails.length - displayLimit} remaining)`
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
