@@ -422,7 +422,44 @@ const handleImmediateUnsubscribe = async (id: string, sender: string) => {
     );
 
     let unsubscribeUrl = null;
+// Step 2: Define protected senders & keywords
+const SYSTEM_DOMAINS = [
+  "google.com",
+  "gmail.com",
+  "paypal.com",
+  "amazon.com",
+  "apple.com",
+  "microsoft.com",
+  "github.com",
+  "linkedin.com",
+  "facebook.com",
+  "x.com",
+  "twitter.com",
+  "instagram.com",
+  "bankofamerica.com",
+  "chase.com",
+  "wellsfargo.com",
+  "stripe.com",
+  "notion.so",
+  "openai.com",
+  "supabase.io",
+  "vercel.com"
+];
 
+const SYSTEM_KEYWORDS = [
+  "security alert",
+  "password",
+  "verification code",
+  "two-factor",
+  "receipt",
+  "invoice",
+  "payment",
+  "order confirmation",
+  "purchase",
+  "login",
+  "notification",
+  "access granted"
+];
     if (listUnsubHeader) {
       const value = listUnsubHeader.value.replace(/[<>]/g, '').trim();
       const links = value.split(',').map((l: string) => l.trim());
@@ -535,6 +572,27 @@ if (!unsubscribeUrl && emailData?.payload?.headers) {
       });
       return;
     }
+// 🧠 Step 3: Hide unsubscribe button for system/transactional emails
+const senderDomain = emailData?.payload?.headers
+  ?.find((h: any) => h.name.toLowerCase() === 'from')
+  ?.value?.split('@')[1]
+  ?.toLowerCase();
+
+const subject =
+  emailData?.payload?.headers?.find(
+    (h: any) => h.name.toLowerCase() === 'subject'
+  )?.value || "";
+
+const isSystemEmail =
+  SYSTEM_DOMAINS.some(domain => senderDomain?.includes(domain)) ||
+  SYSTEM_KEYWORDS.some(keyword =>
+    subject.toLowerCase().includes(keyword)
+  );
+
+if (isSystemEmail) {
+  console.log("🧠 Skipping unsubscribe for system email:", senderDomain);
+  unsubscribeUrl = null; // stops showing unsubscribe button
+}
 
     if (unsubscribeUrl.startsWith('mailto:')) {
       window.open(unsubscribeUrl);
