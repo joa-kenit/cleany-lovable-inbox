@@ -176,6 +176,15 @@ export const EmailCard = ({
                         {email.snippet}
                       </p>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-2 border-destructive/20 text-destructive hover:bg-destructive/10 h-8 px-2 shrink-0"
+                      onClick={() => onDelete?.(email.id, sender)}
+                      disabled={isProcessing}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               ))}
