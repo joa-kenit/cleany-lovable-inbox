@@ -144,24 +144,38 @@ serve(async (req) => {
         const sender = getHeader('From');
         const subject = getHeader('Subject');
         
-        // Extract snippet/body safely
-        let snippet = '';
-        if (detail?.payload?.body?.data) {
-          try {
-            snippet = atob(detail.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-          } catch (e) {
-            console.error('Error decoding body:', e);
-          }
-        } else if (detail?.payload?.parts && Array.isArray(detail.payload.parts)) {
-          const textPart = detail.payload.parts.find(part => part.mimeType === 'text/plain');
-          if (textPart?.body?.data) {
-            try {
-              snippet = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-            } catch (e) {
-              console.error('Error decoding part body:', e);
-            }
-          }
-        }
+// Extract snippet/body safely
+let snippet = '';
+if (detail?.payload?.body?.data) {
+  try {
+    const decoded = atob(detail.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+    // Properly decode UTF-8
+    const utf8decoder = new TextDecoder('utf-8');
+    const bytes = new Uint8Array(decoded.split('').map(char => char.charCodeAt(0)));
+    snippet = utf8decoder.decode(bytes);
+  } catch (e) {
+    console.error('Error decoding body:', e);
+  }
+} else if (detail?.payload?.parts && Array.isArray(detail.payload.parts)) {
+  const textPart = detail.payload.parts.find(part => part.mimeType === 'text/plain');
+  if (textPart?.body?.data) {
+    try {
+      const decoded = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+      const utf8decoder = new TextDecoder('utf-8');
+      const bytes = new Uint8Array(decoded.split('').map(char => char.charCodeAt(0)));
+      snippet = utf8decoder.decode(bytes);
+    } catch (e) {
+      console.error('Error decoding part body:', e);
+    }
+  }
+}
+
+// Clean up the snippet
+snippet = snippet
+  .replace(/https?:\/\/[^\s]+/g, '') // Remove URLs
+  .replace(/\s+/g, ' ') // Clean whitespace
+  .trim()
+  .substring(0, 200);
 
         
         // Clean up encoding artifacts and URLs
