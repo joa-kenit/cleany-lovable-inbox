@@ -14,19 +14,29 @@ import { useNavigate } from "react-router-dom";
 
 function decodeBase64Utf8(str: string) {
   try {
+    // Decode safely
     const decoded = decodeURIComponent(
       escape(atob(str.replace(/-/g, '+').replace(/_/g, '/')))
     );
 
-    // 🧩 Fix for HTML entities (like &amp;, &nbsp;, etc.)
+    // 🧹 Clean broken UTF-8 artifacts and HTML entities
     const parser = new DOMParser();
     const doc = parser.parseFromString(decoded, "text/html");
-    return doc.documentElement.textContent || decoded;
+    let cleaned = doc.documentElement.textContent || decoded;
+
+    // Remove weird symbols and normalize spacing
+    cleaned = cleaned
+      .replace(/[^\x00-\x7F]/g, " ")  // Removes odd characters like â
+      .replace(/\s+/g, " ")           // Collapses excess spaces
+      .trim();
+
+    return cleaned;
   } catch (e) {
     console.warn("UTF-8 decoding failed, falling back to plain base64:", e);
-    return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+    return atob(str.replace(/-/g, '+').replace(/_/g, '/')).replace(/[^\x00-\x7F]/g, " ");
   }
 }
+
 
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
