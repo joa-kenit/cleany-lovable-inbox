@@ -14,28 +14,25 @@ import { useNavigate } from "react-router-dom";
 
 function decodeBase64Utf8(str: string) {
   try {
-    // Decode safely
-    const decoded = decodeURIComponent(
-      escape(atob(str.replace(/-/g, '+').replace(/_/g, '/')))
+    // Decode base64 safely
+    const decoded = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+
+    // Try to decode UTF-8 bytes properly
+    const utf8decoded = new TextDecoder("utf-8").decode(
+      Uint8Array.from(decoded, c => c.charCodeAt(0))
     );
 
-    // 🧹 Clean broken UTF-8 artifacts and HTML entities
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(decoded, "text/html");
-    let cleaned = doc.documentElement.textContent || decoded;
-
-    // Remove weird symbols and normalize spacing
-    cleaned = cleaned
-      .replace(/[^\x00-\x7F]/g, " ")  // Removes odd characters like â
-      .replace(/\s+/g, " ")           // Collapses excess spaces
+    // Clean artifacts & normalize whitespace
+    return utf8decoded
+      .replace(/[^\x00-\x7F]+/g, " ") // removes non-ASCII junk
+      .replace(/\s+/g, " ")           // collapses excess spaces
       .trim();
-
-    return cleaned;
   } catch (e) {
-    console.warn("UTF-8 decoding failed, falling back to plain base64:", e);
-    return atob(str.replace(/-/g, '+').replace(/_/g, '/')).replace(/[^\x00-\x7F]/g, " ");
+    console.warn("Decoding fallback:", e);
+    return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
   }
 }
+
 
 
 
