@@ -173,11 +173,31 @@ export const EmailCard = ({
                         {email.subject}
                       </p>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-  {email.snippet
-    .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII characters
-    .replace(/https?:\/\/[^\s]+/g, '') // Remove URLs
-    .replace(/\s+/g, ' ') // Clean whitespace
-    .trim()}
+  {(() => {
+    let cleaned = email.snippet
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    cleaned = cleaned.replace(/[^\w\s.!?]$/, '');
+    cleaned = cleaned.replace(/\s+\w{1,2}$/, '');
+    
+    if (!/[.!?]$/.test(cleaned)) {
+      const lastSentence = cleaned.lastIndexOf('.');
+      const lastQuestion = cleaned.lastIndexOf('?');
+      const lastExclaim = cleaned.lastIndexOf('!');
+      const lastPunctuation = Math.max(lastSentence, lastQuestion, lastExclaim);
+      
+      if (lastPunctuation > 50) {
+        cleaned = cleaned.substring(0, lastPunctuation + 1);
+      } else {
+        cleaned = cleaned.replace(/\s+\S*$/, '...');
+      }
+    }
+    
+    return cleaned;
+  })()}
 </p>
                     </div>
                     <Button
