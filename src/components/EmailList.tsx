@@ -62,7 +62,7 @@ export const EmailList = () => {
   const [isProcessingUnsubscribe, setIsProcessingUnsubscribe] = useState(false);
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
-  const [filterTab, setFilterTab] = useState<string>("this-week");
+  const [filterTab, setFilterTab] = useState<string>("all-senders");
   const [processingEmailId, setProcessingEmailId] = useState<string | null>(null);
   const [showCleanDialog, setShowCleanDialog] = useState(false);
   const [isCleaningInbox, setIsCleaningInbox] = useState(false);
@@ -189,43 +189,52 @@ const cleanEmailSnippet = (snippet: string): string => {
     }
   };
 
-  // Helper function to detect newsletter emails
+  // Helper function to detect newsletter emails (Substack, Beehiiv, ConvertKit, etc.)
   const isNewsletterEmail = (email: Email): boolean => {
-    const newsletterKeywords = ['newsletter', 'subscription', 'digest', 'weekly', 'monthly', 'unsubscribe'];
-    const subjectLower = email.subject.toLowerCase();
+    const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
     const senderLower = email.sender.toLowerCase();
+    const subjectLower = email.subject.toLowerCase();
     
-    return newsletterKeywords.some(keyword => 
-      subjectLower.includes(keyword) || senderLower.includes(keyword)
-    ) || !!email.unsubscribeUrl;
+    return newsletterPlatforms.some(platform => senderLower.includes(platform)) ||
+           (subjectLower.includes('newsletter') || subjectLower.includes('digest'));
+  };
+
+  // Helper function to detect subscription emails (automated/recurring)
+  const isSubscriptionEmail = (email: Email): boolean => {
+    const subscriptionKeywords = ['subscription', 'weekly', 'monthly', 'daily', 'unsubscribe', 'update'];
+    const senderLower = email.sender.toLowerCase();
+    const subjectLower = email.subject.toLowerCase();
+    
+    return !!email.unsubscribeUrl || 
+           subscriptionKeywords.some(keyword => 
+             senderLower.includes(keyword) || subjectLower.includes(keyword)
+           );
+  };
+
+  // Helper function to detect marketing emails (promotional/brand)
+  const isMarketingEmail = (email: Email): boolean => {
+    const marketingBrands = ['shopify', 'notion', 'slack', 'figma', 'canva', 'adobe', 'zoom', 'asana', 'trello', 'salesforce'];
+    const marketingKeywords = ['sale', 'offer', 'discount', 'promo', 'deal', 'limited time', 'special offer', 'new feature', 'upgrade', 'announcement'];
+    const senderLower = email.sender.toLowerCase();
+    const subjectLower = email.subject.toLowerCase();
+    
+    return marketingBrands.some(brand => senderLower.includes(brand)) ||
+           marketingKeywords.some(keyword => subjectLower.includes(keyword));
   };
 
   // Filter emails based on selected tab
   const getFilteredEmails = () => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
     switch (filterTab) {
-      case "all":
+      case "all-senders":
         return emails;
-      case "this-week":
-        return emails.filter(email => {
-          if (!email.date) return true; // Include if no date
-          return new Date(email.date) >= oneWeekAgo;
-        });
-      case "this-month":
-        return emails.filter(email => {
-          if (!email.date) return true; // Include if no date
-          return new Date(email.date) >= oneMonthAgo;
-        });
+      case "subscriptions":
+        return emails.filter(isSubscriptionEmail);
       case "newsletters":
         return emails.filter(isNewsletterEmail);
+      case "marketing":
+        return emails.filter(isMarketingEmail);
       case "most-frequent":
         return emails; // Will be sorted after grouping
-      case "all-time":
-        // Show all emails regardless of date
-        return emails;
       default:
         return emails;
     }
@@ -255,12 +264,12 @@ const cleanEmailSnippet = (snippet: string): string => {
     displayEmails = displayEmails.sort((a, b) => b.emailCount - a.emailCount);
   }
 
-  // Apply pagination for "all-time" tab
-  const paginatedEmails = filterTab === "all-time" 
+  // Apply pagination for "all-senders" tab
+  const paginatedEmails = filterTab === "all-senders" 
     ? displayEmails.slice(0, displayLimit)
     : displayEmails;
   
-  const hasMore = filterTab === "all-time" && displayEmails.length > displayLimit;
+  const hasMore = filterTab === "all-senders" && displayEmails.length > displayLimit;
 
   const handleLoadMore = () => {
     setIsLoadingMore(true);
@@ -880,13 +889,12 @@ const isSystemEmail = (email: any) => {
         setFilterTab(value);
         setDisplayLimit(20); // Reset pagination when changing tabs
       }} className="mb-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">All Senders</TabsTrigger>
-          <TabsTrigger value="this-week">This Week</TabsTrigger>
-          <TabsTrigger value="this-month">This Month</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all-senders">All Senders</TabsTrigger>
+          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="newsletters">Newsletters</TabsTrigger>
+          <TabsTrigger value="marketing">Marketing</TabsTrigger>
           <TabsTrigger value="most-frequent">Most Frequent</TabsTrigger>
-          <TabsTrigger value="all-time">All Time</TabsTrigger>
         </TabsList>
       </Tabs>
 
