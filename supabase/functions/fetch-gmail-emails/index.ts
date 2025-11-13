@@ -163,8 +163,19 @@ serve(async (req) => {
           }
         }
 
-        // Truncate snippet to reasonable length
-        snippet = snippet.substring(0, 200);
+        
+        // Clean up encoding artifacts and URLs
+snippet = snippet
+  .replace(/https?:\/\/[^\s]+/g, '') // Remove URLs
+  .replace(/â/g, '') // Remove encoding artifacts
+  .replace(/â¢/g, '•')
+  .replace(/â/g, '"')
+  .replace(/â/g, '"')
+  .replace(/â/g, "'")
+  .replace(/â¦/g, '...')
+  .replace(/\s+/g, ' ') // Clean whitespace
+  .trim()
+  .substring(0, 200);
 
         return {
           id: detail.id,
