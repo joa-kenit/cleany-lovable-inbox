@@ -28,7 +28,7 @@ serve(async (req) => {
   try {
     console.log('[Edge Function] fetch-gmail-emails invoked');
     
-    const { providerToken, maxResults = 20 } = await req.json();
+    const { providerToken, maxResults = 30 } = await req.json();
 
     console.log('[Edge Function] Request params:', { 
       hasProviderToken: !!providerToken,
