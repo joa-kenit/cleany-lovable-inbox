@@ -537,7 +537,19 @@ if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
   if (bodyPart.body?.data) {
     const decodedBody = decodeBase64Utf8(bodyPart.body.data);
 
-  
+// 🧹 Clean decoded body to remove links, HTML tags, and weird characters
+let cleanedBody = decodedBody
+  // Remove long URLs (tracking or redirect links)
+  .replace(/https?:\/\/[^\s<>()]+/g, "")
+  // Remove HTML tags
+  .replace(/<\/?[^>]+(>|$)/g, "")
+  // Remove weird UTF-8 artifacts like â
+  .replace(/[^\x00-\x7F]/g, " ")
+  // Normalize whitespace
+  .replace(/\s+/g, " ")
+  .trim();
+
+    
   // DEBUG: Log the decoded body to see what we're working with
   console.log('[Unsubscribe Debug] Email body length:', decodedBody.length);
   console.log('[Unsubscribe Debug] Searching for unsubscribe links...');
@@ -545,7 +557,7 @@ if (!unsubscribeUrl || unsubscribeUrl.startsWith('mailto:')) {
         
 // UNIVERSAL UNSUBSCRIBE DETECTOR
 const linkRegex = /https?:\/\/[^\s"'<>]+/gi;
-const allLinks = decodedBody.match(linkRegex) || [];
+const allLinks = cleanedBody.match(linkRegex) || [];
 
 const unsubscribeKeywords = /(unsubscribe|opt.?out|remove|manage.?pref|notification|v=off|optin=0)/i;
 const knownRedirectors = /(link\.|click\.|email\.|u\.|campaign\.)/i;
