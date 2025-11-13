@@ -170,6 +170,9 @@ if (detail?.payload?.body?.data) {
   }
 }
 
+// Keep full body text for newsletter detection before trimming
+const fullBodyText = snippet;
+
 // Clean up the snippet
 snippet = snippet
   .replace(/https?:\/\/[^\s]+/g, '') // Remove URLs
@@ -191,12 +194,59 @@ snippet = snippet
   .trim()
   .substring(0, 200);
 
+        // Newsletter detection
+        const newsletterPlatforms = [
+          'substack.com',
+          'beehiiv.com',
+          'convertkit',
+          'mailchimp',
+          'sendgrid',
+          'kajabi',
+          'ck.page',
+          'medium.com',
+          'skool.com',
+          'buttondown.email',
+          'ghost.io',
+          'getrevue.co',
+          'tinyletter.com',
+          'campaignmonitor.com',
+          'activecampaign.com',
+          'constantcontact.com',
+        ];
+
+        const newsletterSubjectKeywords = [
+          'newsletter',
+          'digest',
+          'weekly',
+          'update',
+          'edition',
+          'roundup',
+          'briefing',
+        ];
+
+        const bodyLower = fullBodyText.toLowerCase();
+        const subjectLower = subject.toLowerCase();
+        const senderLower = sender.toLowerCase();
+
+        const hasPlatformInBody = newsletterPlatforms.some(platform => 
+          bodyLower.includes(platform)
+        );
+        const hasPlatformInSender = newsletterPlatforms.some(platform => 
+          senderLower.includes(platform)
+        );
+        const hasNewsletterKeywordInSubject = newsletterSubjectKeywords.some(keyword => 
+          subjectLower.includes(keyword)
+        );
+
+        const isNewsletter = hasPlatformInBody || hasPlatformInSender || hasNewsletterKeywordInSubject;
+
         return {
           id: detail.id,
           sender: sender || 'Unknown Sender',
           subject: subject || '(No Subject)',
           snippet: snippet || '',
           action: null,
+          isNewsletter,
         };
       } catch (error) {
         console.error(`Error processing message ${message.id}:`, error);

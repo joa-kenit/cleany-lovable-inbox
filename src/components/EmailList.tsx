@@ -53,6 +53,7 @@ export interface Email {
   unsubscribeMethod?: 'GET' | 'POST' | 'MAILTO';
   emailCount?: number;
   date?: string;
+  isNewsletter?: boolean;
 }
 
 export const EmailList = () => {
@@ -193,6 +194,12 @@ const cleanEmailSnippet = (snippet: string): string => {
 
   // Helper function to detect newsletter emails (Substack, Beehiiv, ConvertKit, etc.)
   const isNewsletterEmail = (email: Email): boolean => {
+    // Use the isNewsletter field from the backend if available
+    if ('isNewsletter' in email && email.isNewsletter !== undefined) {
+      return email.isNewsletter;
+    }
+    
+    // Fallback to legacy detection if field not present
     const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
     const senderLower = email.sender.toLowerCase();
     const subjectLower = email.subject.toLowerCase();
