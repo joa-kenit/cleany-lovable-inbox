@@ -7,6 +7,7 @@ import { CleanInboxDialog } from "@/components/CleanInboxDialog";
 import { WeeklySummary } from "@/components/WeeklySummary";
 import { PreferencesManager } from "@/components/PreferencesManager";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Sparkles, Loader2, Brain, LogOut, Undo } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +64,7 @@ export const EmailList = () => {
   const [autoApplyEnabled, setAutoApplyEnabled] = useState(true);
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
   const [filterTab, setFilterTab] = useState<string>("all-senders");
+  const [dateRange, setDateRange] = useState<string>("all-time");
   const [processingEmailId, setProcessingEmailId] = useState<string | null>(null);
   const [showCleanDialog, setShowCleanDialog] = useState(false);
   const [isCleaningInbox, setIsCleaningInbox] = useState(false);
@@ -222,21 +224,49 @@ const cleanEmailSnippet = (snippet: string): string => {
            marketingKeywords.some(keyword => subjectLower.includes(keyword));
   };
 
-  // Filter emails based on selected tab
+  // Filter emails based on selected tab and date range
   const getFilteredEmails = () => {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // First filter by tab
+    let filtered = emails;
     switch (filterTab) {
       case "all-senders":
-        return emails;
+        filtered = emails;
+        break;
       case "subscriptions":
-        return emails.filter(isSubscriptionEmail);
+        filtered = emails.filter(isSubscriptionEmail);
+        break;
       case "newsletters":
-        return emails.filter(isNewsletterEmail);
+        filtered = emails.filter(isNewsletterEmail);
+        break;
       case "marketing":
-        return emails.filter(isMarketingEmail);
+        filtered = emails.filter(isMarketingEmail);
+        break;
       case "most-frequent":
-        return emails; // Will be sorted after grouping
+        filtered = emails;
+        break;
       default:
-        return emails;
+        filtered = emails;
+    }
+
+    // Then apply date range filter
+    switch (dateRange) {
+      case "this-week":
+        return filtered.filter(email => {
+          if (!email.date) return true;
+          return new Date(email.date) >= oneWeekAgo;
+        });
+      case "this-month":
+        return filtered.filter(email => {
+          if (!email.date) return true;
+          return new Date(email.date) >= oneMonthAgo;
+        });
+      case "all-time":
+      default:
+        return filtered;
     }
   };
 
@@ -885,18 +915,33 @@ const isSystemEmail = (email: any) => {
         </div>
       </div>
 
-      <Tabs value={filterTab} onValueChange={(value) => {
-        setFilterTab(value);
-        setDisplayLimit(20); // Reset pagination when changing tabs
-      }} className="mb-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all-senders">All Senders</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="newsletters">Newsletters</TabsTrigger>
-          <TabsTrigger value="marketing">Marketing</TabsTrigger>
-          <TabsTrigger value="most-frequent">Most Frequent</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="mb-6">
+        <div className="flex items-center justify-end mb-4">
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[180px] bg-background">
+              <SelectValue placeholder="Date range" />
+            </SelectTrigger>
+            <SelectContent className="bg-background z-50">
+              <SelectItem value="all-time">All Time</SelectItem>
+              <SelectItem value="this-week">This Week</SelectItem>
+              <SelectItem value="this-month">This Month</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <Tabs value={filterTab} onValueChange={(value) => {
+          setFilterTab(value);
+          setDisplayLimit(20); // Reset pagination when changing tabs
+        }}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="all-senders">All Senders</TabsTrigger>
+            <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            <TabsTrigger value="newsletters">Newsletters</TabsTrigger>
+            <TabsTrigger value="marketing">Marketing</TabsTrigger>
+            <TabsTrigger value="most-frequent">Most Frequent</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       {isLoadingEmails ? (
         <div className="flex flex-col items-center justify-center py-12">
