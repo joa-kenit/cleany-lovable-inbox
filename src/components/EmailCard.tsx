@@ -172,9 +172,9 @@ export const EmailCard = ({
                       <p className="text-sm font-medium truncate mb-0.5">
                         {email.subject}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {email.snippet}
-                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      {email.snippet.replace(/https?:\/\/[^\s]+/g, '').replace(/\s+/g, ' ').trim()}
+                    </p>
                     </div>
                     <Button
                       variant="outline"
