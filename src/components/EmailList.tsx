@@ -70,6 +70,16 @@ export const EmailList = () => {
   const [displayLimit, setDisplayLimit] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+const cleanEmailSnippet = (snippet: string): string => {
+  // Remove URLs
+  let cleaned = snippet.replace(/https?:\/\/[^\s]+/g, '');
+  // Remove excessive whitespace
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  // Remove common email artifacts
+  cleaned = cleaned.replace(/\[.*?\]/g, '');
+  return cleaned;
+};
+  
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/");
