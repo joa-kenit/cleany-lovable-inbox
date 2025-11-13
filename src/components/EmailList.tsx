@@ -916,22 +916,25 @@ const isSystemEmail = (email: any) => {
       </div>
 
       <div className="mb-6">
-        <div className="flex items-center justify-end mb-4">
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[180px] bg-background">
-              <SelectValue placeholder="Date range" />
-            </SelectTrigger>
-            <SelectContent className="bg-background z-50">
-              <SelectItem value="all-time">All Time</SelectItem>
-              <SelectItem value="this-week">This Week</SelectItem>
-              <SelectItem value="this-month">This Month</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center justify-end mb-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Date range:</span>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[140px] h-9 bg-background border-input">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border z-50">
+                <SelectItem value="all-time">All Time</SelectItem>
+                <SelectItem value="this-week">This Week</SelectItem>
+                <SelectItem value="this-month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         
         <Tabs value={filterTab} onValueChange={(value) => {
           setFilterTab(value);
-          setDisplayLimit(20); // Reset pagination when changing tabs
+          setDisplayLimit(20);
         }}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all-senders">All Senders</TabsTrigger>
