@@ -57,6 +57,16 @@ export const EmailCard = ({
     const isSelected = currentAction === action;
     
     const variants = {
+      keep: {
+        icon: isSelected ? Check : Check,
+        className: cn(
+          "border-2 transition-all",
+          isSelected
+            ? "bg-success text-success-foreground border-success shadow-md"
+            : "border-success/20 text-success hover:bg-success/10"
+        ),
+        label: "Keep",
+      },
       delete: {
         icon: isSelected ? Check : Trash2,
         className: cn(
@@ -79,7 +89,7 @@ export const EmailCard = ({
       },
     };
 
-    if (!action || action === 'keep') return null;
+    if (!action) return null;
 
     const config = variants[action];
     const Icon = config.icon;
@@ -136,6 +146,7 @@ export const EmailCard = ({
 
             {/* Action Buttons */}
             <div className="flex gap-2 shrink-0">
+              {getActionButton("keep")}
               {getActionButton("delete")}
               {!hideUnsubscribe && getActionButton("unsubscribe")}
               <CollapsibleTrigger asChild>
