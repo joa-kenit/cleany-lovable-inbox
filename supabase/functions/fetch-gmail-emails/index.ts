@@ -28,12 +28,14 @@ serve(async (req) => {
   try {
     console.log('[Edge Function] fetch-gmail-emails invoked');
     
-    const { providerToken, maxResults = 30 } = await req.json();
+    const { providerToken, maxResults = 30, maxPages = 1, senderFilter } = await req.json();
 
     console.log('[Edge Function] Request params:', { 
       hasProviderToken: !!providerToken,
       tokenLength: providerToken?.length || 0,
-      maxResults 
+      maxResults,
+      maxPages,
+      senderFilter
     });
 
     // Validate provider token exists
@@ -52,57 +54,97 @@ serve(async (req) => {
 
     console.log('[Edge Function] Fetching Gmail messages list...');
 
-    // Fetch message list from Gmail API
-    const listResponse = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=in:inbox`,
-      {
+    // Build Gmail search query
+    let query = 'in:inbox';
+    if (senderFilter) {
+      // Extract email from sender string (e.g., "Name <email@domain.com>" -> "email@domain.com")
+      const emailMatch = senderFilter.match(/<(.+)>/);
+      const email = emailMatch ? emailMatch[1] : senderFilter;
+      query += ` from:${email}`;
+      console.log('[Edge Function] Filtering by sender:', email);
+    }
+
+    // Collect all messages across multiple pages
+    const allMessages: GmailMessage[] = [];
+    let pageToken: string | undefined;
+    let currentPage = 0;
+
+    while (currentPage < maxPages) {
+      const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+      url.searchParams.set('maxResults', maxResults.toString());
+      url.searchParams.set('q', query);
+      if (pageToken) {
+        url.searchParams.set('pageToken', pageToken);
+      }
+
+      console.log(`[Edge Function] Fetching page ${currentPage + 1}/${maxPages}...`);
+
+      // Fetch message list from Gmail API
+      const listResponse = await fetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${providerToken}`,
           'Content-Type': 'application/json',
         },
-      }
-    );
-
-    console.log('[Edge Function] Gmail API list response status:', listResponse.status);
-
-    if (!listResponse.ok) {
-      const errorText = await listResponse.text();
-      console.error('[Edge Function] Gmail API list error:', {
-        status: listResponse.status,
-        statusText: listResponse.statusText,
-        error: errorText
       });
-      
-      let userMessage = 'Gmail API error. Your access token may have expired.';
-      if (listResponse.status === 401) {
-        userMessage = 'Gmail access token expired. Please sign out and sign in again.';
-      } else if (listResponse.status === 403) {
-        userMessage = 'Gmail access denied. Please grant Gmail permissions when signing in.';
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: userMessage,
-          details: `Status: ${listResponse.status} - ${errorText}`
-        }),
-        { 
-          status: listResponse.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+
+      console.log('[Edge Function] Gmail API list response status:', listResponse.status);
+
+      if (!listResponse.ok) {
+        const errorText = await listResponse.text();
+        console.error('[Edge Function] Gmail API list error:', {
+          status: listResponse.status,
+          statusText: listResponse.statusText,
+          error: errorText
+        });
+        
+        let userMessage = 'Gmail API error. Your access token may have expired.';
+        if (listResponse.status === 401) {
+          userMessage = 'Gmail access token expired. Please sign out and sign in again.';
+        } else if (listResponse.status === 403) {
+          userMessage = 'Gmail access denied. Please grant Gmail permissions when signing in.';
         }
-      );
+        
+        return new Response(
+          JSON.stringify({ 
+            error: userMessage,
+            details: `Status: ${listResponse.status} - ${errorText}`
+          }),
+          { 
+            status: listResponse.status, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const listData = await listResponse.json();
+      
+      console.log('[Edge Function] Gmail API list response received:', {
+        hasMessages: !!listData.messages,
+        messageCount: listData.messages?.length || 0,
+        resultSizeEstimate: listData.resultSizeEstimate,
+        hasNextPage: !!listData.nextPageToken
+      });
+
+      if (!listData.messages || listData.messages.length === 0) {
+        console.log('[Edge Function] No messages found on this page');
+        break;
+      }
+
+      allMessages.push(...listData.messages);
+      pageToken = listData.nextPageToken;
+      currentPage++;
+
+      if (!pageToken) {
+        console.log('[Edge Function] No more pages available');
+        break;
+      }
     }
 
-    const listData = await listResponse.json();
-    
-    console.log('[Edge Function] Gmail API list response received:', {
-      hasMessages: !!listData.messages,
-      messageCount: listData.messages?.length || 0,
-      resultSizeEstimate: listData.resultSizeEstimate
-    });
+    console.log(`[Edge Function] Total messages collected: ${allMessages.length} from ${currentPage} pages`);
 
-    // Validate list data structure
-    if (!listData || !Array.isArray(listData.messages)) {
-      console.log('[Edge Function] No messages found or invalid response structure');
+    // Validate messages
+    if (!allMessages || allMessages.length === 0) {
+      console.log('[Edge Function] No messages found');
       return new Response(
         JSON.stringify({ emails: [] }),
         { 
@@ -112,10 +154,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[Edge Function] Found ${listData.messages.length} messages, fetching details...`);
+    console.log(`[Edge Function] Found ${allMessages.length} messages, fetching details...`);
 
     // Fetch details for each message
-    const emailPromises = listData.messages.map(async (message: GmailMessage) => {
+    const emailPromises = allMessages.map(async (message: GmailMessage) => {
       try {
         const detailResponse = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
@@ -256,7 +298,7 @@ snippet = snippet
 
     const emails = (await Promise.all(emailPromises)).filter(email => email !== null);
 
-    console.log(`[Edge Function] Successfully processed ${emails.length} emails out of ${listData.messages.length} fetched`);
+    console.log(`[Edge Function] Successfully processed ${emails.length} emails out of ${allMessages.length} fetched`);
 
     return new Response(
       JSON.stringify({ emails }),
