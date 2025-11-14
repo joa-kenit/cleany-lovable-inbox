@@ -72,6 +72,7 @@ export const EmailList = () => {
   const [undoStack, setUndoStack] = useState<Array<{ emails: Email[], action: string }>>([]);
   const [displayLimit, setDisplayLimit] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadingMoreSender, setLoadingMoreSender] = useState<string | null>(null);
 
 const cleanEmailSnippet = (snippet: string): string => {
   // Remove URLs
@@ -87,6 +88,76 @@ const cleanEmailSnippet = (snippet: string): string => {
     await supabase.auth.signOut();
     navigate("/");
     toast.success("Signed out successfully");
+  };
+
+  const loadMoreEmails = async (sender: string) => {
+    setLoadingMoreSender(sender);
+    try {
+      console.log('[Load More] Loading more emails for sender:', sender);
+      
+      // Get the current session with provider token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('[Load More] Session error:', sessionError);
+        toast.error('Failed to get authentication session');
+        return;
+      }
+
+      if (!session.provider_token) {
+        console.error('[Load More] No provider token available');
+        toast.error('Gmail authentication token not available');
+        return;
+      }
+
+      console.log('[Load More] Calling fetch-gmail-emails with sender filter:', sender);
+      
+      const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
+        body: { 
+          providerToken: session.provider_token,
+          maxResults: 50,
+          maxPages: 5,
+          senderFilter: sender
+        }
+      });
+
+      if (error) {
+        console.error('[Load More] Error:', error);
+        toast.error('Failed to load more emails');
+        return;
+      }
+
+      if (data?.emails && Array.isArray(data.emails)) {
+        console.log(`[Load More] Retrieved ${data.emails.length} more emails for ${sender}`);
+        
+        // Process new emails
+        const processedEmails: Email[] = data.emails.map((email: any) => ({
+          id: email.id || Math.random().toString(),
+          sender: email.from || 'Unknown',
+          subject: email.subject || '(No Subject)',
+          snippet: cleanEmailSnippet(email.snippet || ''),
+          action: null,
+          unsubscribeUrl: email.unsubscribeUrl,
+          unsubscribeMethod: email.unsubscribeMethod,
+          date: email.date,
+          isNewsletter: email.isNewsletter || false
+        }));
+
+        // Merge with existing emails, avoiding duplicates
+        setEmails(prevEmails => {
+          const existingIds = new Set(prevEmails.map(e => e.id));
+          const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
+          return [...prevEmails, ...newEmails];
+        });
+
+        toast.success(`Loaded ${processedEmails.length} more emails from ${sender.split('<')[0].trim()}`);
+      }
+    } catch (error) {
+      console.error('[Load More] Unexpected error:', error);
+      toast.error('Failed to load more emails');
+    } finally {
+      setLoadingMoreSender(null);
+    }
   };
 
   const fetchGmailEmails = async () => {
@@ -971,8 +1042,10 @@ const isSystemEmail = (email: any) => {
                 onActionChange={handleActionChange}
                 onDelete={handleImmediateDelete}
                 onUnsubscribe={handleImmediateUnsubscribe}
+                onLoadMore={loadMoreEmails}
                 emailCount={group.emailCount}
                 isProcessing={processingEmailId === firstEmail.id}
+                isLoadingMore={loadingMoreSender === group.sender}
                 hideUnsubscribe={hideUnsubscribe}
               />
             );

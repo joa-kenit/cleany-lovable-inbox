@@ -12,8 +12,10 @@ interface EmailCardProps {
   onActionChange: (id: string, action: EmailAction) => void;
   onDelete?: (id: string, sender: string) => void;
   onUnsubscribe?: (id: string, sender: string) => void;
+  onLoadMore?: (sender: string) => void;
   emailCount: number;
   isProcessing?: boolean;
+  isLoadingMore?: boolean;
   hideUnsubscribe?: boolean;
 }
 
@@ -42,9 +44,11 @@ export const EmailCard = ({
   sender, 
   onActionChange, 
   onDelete, 
-  onUnsubscribe, 
+  onUnsubscribe,
+  onLoadMore, 
   emailCount, 
-  isProcessing, 
+  isProcessing,
+  isLoadingMore, 
   hideUnsubscribe 
 }: EmailCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -225,9 +229,20 @@ export const EmailCard = ({
               ))}
             </div>
             {emails.length > 5 && (
-              <div className="px-4 py-2 text-center text-xs text-muted-foreground border-t">
-                +{emails.length - 5} more emails
-              </div>
+              <button
+                onClick={() => onLoadMore?.(sender)}
+                disabled={isLoadingMore}
+                className="w-full px-4 py-2 text-center text-xs text-muted-foreground border-t hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoadingMore ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading more emails...
+                  </span>
+                ) : (
+                  `+${emails.length - 5} more emails - Click to load`
+                )}
+              </button>
             )}
           </div>
         </CollapsibleContent>
