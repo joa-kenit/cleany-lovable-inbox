@@ -115,60 +115,8 @@ export const PreferencesManager = () => {
     return null;
   }
 
-  return <></>;
-
-
-      {preferences.length === 0 ? (
-        <div className="text-center py-8">
-          <Brain className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-muted-foreground">
-            No preferences learned yet. Clean some emails to help the AI learn your patterns!
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {preferences.map((pref) => (
-            <div
-              key={pref.id}
-              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {getActionIcon(pref.preferred_action)}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{pref.sender_pattern}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {pref.action_count} {pref.action_count === 1 ? 'action' : 'actions'} tracked
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className={getActionColor(pref.preferred_action)}>
-                    {pref.preferred_action}
-                  </Badge>
-                  <Badge variant="outline">
-                    {Math.round(pref.confidence_score * 100)}% confident
-                  </Badge>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeletePreference(pref.id)}
-                className="ml-2"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
-        <p className="text-sm text-muted-foreground">
-          <strong>How it works:</strong> The AI learns from your actions and automatically suggests
-          future emails to keep, delete, or unsubscribe based on sender patterns. Higher confidence
-          means more consistent actions.
-        </p>
-      </div>
-    </Card>
-  );
+return null;
 };
+
+
+      
