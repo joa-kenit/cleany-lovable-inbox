@@ -115,39 +115,8 @@ export const PreferencesManager = () => {
     return null;
   }
 
-  return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Brain className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-lg">AI Learned Preferences</h3>
-        </div>
-        {preferences.length > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reset All
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Reset All Preferences?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will delete all learned preferences. The AI will start learning from scratch
-                  based on your future actions. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetAll}>
-                  Reset All
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
+  return <></>;
+
 
       {preferences.length === 0 ? (
         <div className="text-center py-8">
