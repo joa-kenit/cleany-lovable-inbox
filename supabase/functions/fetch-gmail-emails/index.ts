@@ -68,8 +68,12 @@ serve(async (req) => {
     const allMessages: GmailMessage[] = [];
     let pageToken: string | undefined;
     let currentPage = 0;
+    
+    // When filtering by sender, fetch ALL pages; otherwise respect maxPages limit
+    const shouldFetchAllPages = !!senderFilter;
+    const pageLimit = shouldFetchAllPages ? 999 : maxPages;
 
-    while (currentPage < maxPages) {
+    while (currentPage < pageLimit) {
       const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
       url.searchParams.set('maxResults', maxResults.toString());
       url.searchParams.set('q', query);
@@ -77,7 +81,7 @@ serve(async (req) => {
         url.searchParams.set('pageToken', pageToken);
       }
 
-      console.log(`[Edge Function] Fetching page ${currentPage + 1}/${maxPages}...`);
+      console.log(`[Edge Function] Fetching page ${currentPage + 1}${shouldFetchAllPages ? '' : `/${pageLimit}`}...`);
 
       // Fetch message list from Gmail API
       const listResponse = await fetch(url.toString(), {
@@ -156,8 +160,18 @@ serve(async (req) => {
 
     console.log(`[Edge Function] Found ${allMessages.length} messages, fetching details...`);
 
-    // Fetch details for each message
-    const emailPromises = allMessages.map(async (message: GmailMessage) => {
+    // Helper function to add delay
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Fetch details in batches to avoid rate limits
+    const batchSize = 10;
+    const allEmails: any[] = [];
+
+    for (let i = 0; i < allMessages.length; i += batchSize) {
+      const batch = allMessages.slice(i, i + batchSize);
+      console.log(`[Edge Function] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allMessages.length / batchSize)} (${batch.length} messages)`);
+
+      const batchPromises = batch.map(async (message: GmailMessage) => {
       try {
         const detailResponse = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
@@ -296,12 +310,19 @@ snippet = snippet
       }
     });
 
-    const emails = (await Promise.all(emailPromises)).filter(email => email !== null);
+      const batchResults = await Promise.all(batchPromises);
+      allEmails.push(...batchResults.filter((email): email is any => email !== null));
 
-    console.log(`[Edge Function] Successfully processed ${emails.length} emails out of ${allMessages.length} fetched`);
+      // Add delay between batches to avoid rate limits (except for last batch)
+      if (i + batchSize < allMessages.length) {
+        await delay(100); // 100ms delay between batches
+      }
+    }
+
+    console.log(`[Edge Function] Successfully processed ${allEmails.length} emails out of ${allMessages.length} fetched`);
 
     return new Response(
-      JSON.stringify({ emails }),
+      JSON.stringify({ emails: allEmails }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
