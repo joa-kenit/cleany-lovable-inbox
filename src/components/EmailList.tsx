@@ -112,21 +112,35 @@ const cleanEmailSnippet = (snippet: string): string => {
         return;
       }
 
-      if (!session.provider_token) {
-        console.error('[Load More] No provider token available');
-        toast.error('Gmail authentication token not available');
+      const providerToken = session.provider_token;
+      if (!providerToken) {
+        toast.error('Gmail access not available');
         return;
       }
 
-      console.log('[Load More] Calling fetch-gmail-emails with sender filter:', sender);
-      
-      const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
-        body: { 
-          providerToken: session.provider_token,
-          maxResults: 50,
-          maxPages: 5,
-          senderFilter: sender
-        }
+      // Get current state for this sender
+      const currentState = senderState[sender];
+      if (!currentState) {
+        console.error('[Load More] No state found for sender:', sender);
+        return;
+      }
+
+      // Check if already fully loaded or at 100 email cap
+      if (currentState.fullyLoaded || currentState.emails.length >= 100) {
+        toast.info('All available emails loaded for this sender');
+        return;
+      }
+
+      console.log('[Load More] Calling fetch-sender-emails with pageToken:', currentState.nextPageToken);
+
+      // Call the new fetch-sender-emails function
+      const { data, error } = await supabase.functions.invoke('fetch-sender-emails', {
+        body: {
+          providerToken,
+          sender: sender,
+          maxResults: 5,
+          pageToken: currentState.nextPageToken,
+        },
       });
 
       if (error) {
@@ -135,31 +149,79 @@ const cleanEmailSnippet = (snippet: string): string => {
         return;
       }
 
-      if (data?.emails && Array.isArray(data.emails)) {
-        console.log(`[Load More] Retrieved ${data.emails.length} more emails for ${sender}`);
-        
-        // Process new emails
-        const processedEmails: Email[] = data.emails.map((email: any) => ({
-          id: email.id || Math.random().toString(),
-          sender: email.from || 'Unknown',
-          subject: email.subject || '(No Subject)',
-          snippet: cleanEmailSnippet(email.snippet || ''),
-          action: null,
-          unsubscribeUrl: email.unsubscribeUrl,
-          unsubscribeMethod: email.unsubscribeMethod,
-          date: email.date,
-          isNewsletter: email.isNewsletter || false
+      if (!data || !data.messages || data.messages.length === 0) {
+        // No more emails available
+        setSenderState(prev => ({
+          ...prev,
+          [sender]: {
+            ...prev[sender],
+            fullyLoaded: true,
+          },
         }));
-
-        // Merge with existing emails, avoiding duplicates
-        setEmails(prevEmails => {
-          const existingIds = new Set(prevEmails.map(e => e.id));
-          const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
-          return [...prevEmails, ...newEmails];
-        });
-
-        toast.success(`Loaded ${processedEmails.length} more emails from ${sender.split('<')[0].trim()}`);
+        toast.info('No more emails to load for this sender');
+        return;
       }
+
+      console.log('[Load More] Fetched', data.messages.length, 'message IDs');
+
+      // Fetch full details for each message
+      const messageDetails = await Promise.all(
+        data.messages.map(async (msg: { id: string }) => {
+          const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
+          const response = await fetch(detailUrl, {
+            headers: { 'Authorization': `Bearer ${providerToken}` },
+          });
+          return response.json();
+        })
+      );
+
+      // Process messages into Email objects
+      const processedEmails: Email[] = messageDetails.map((msg: any) => {
+        const headers = msg.payload?.headers || [];
+        const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
+        const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
+        const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
+
+        return {
+          id: msg.id,
+          sender: fromHeader?.value || 'Unknown',
+          subject: subjectHeader?.value || '(No Subject)',
+          snippet: msg.snippet || '',
+          action: null,
+          date: dateHeader?.value,
+        };
+      });
+
+      // Update emails array and sender state
+      setEmails(prevEmails => {
+        const existingIds = new Set(prevEmails.map(e => e.id));
+        const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
+        return [...prevEmails, ...newEmails];
+      });
+
+      // Update sender state
+      setSenderState(prev => {
+        const currentEmails = prev[sender]?.emails || [];
+        const existingIds = new Set(currentEmails.map(e => e.id));
+        const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
+        const updatedEmails = [...currentEmails, ...newEmails];
+        
+        // Check if we've hit the 100 email cap or no more pages
+        const fullyLoaded = !data.nextPageToken || updatedEmails.length >= 100;
+
+        return {
+          ...prev,
+          [sender]: {
+            emails: updatedEmails.slice(0, 100), // Cap at 100
+            totalCount: data.totalCount || updatedEmails.length,
+            nextPageToken: data.nextPageToken || null,
+            fullyLoaded,
+          },
+        };
+      });
+
+      toast.success(`Loaded ${processedEmails.length} more emails from ${sender.split('<')[0].trim()}`);
+
     } catch (error) {
       console.error('[Load More] Unexpected error:', error);
       toast.error('Failed to load more emails');
@@ -1092,6 +1154,7 @@ const isSystemEmail = (email: any) => {
                 isProcessing={processingEmailId === firstEmail.id}
                 isLoadingMore={loadingMoreSender === group.sender}
                 hideUnsubscribe={hideUnsubscribe}
+                senderLoadState={senderState[group.sender]}
               />
             );
           })}
