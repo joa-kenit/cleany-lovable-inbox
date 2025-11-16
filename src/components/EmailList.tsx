@@ -435,11 +435,64 @@ toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} 
            marketingKeywords.some(keyword => subjectLower.includes(keyword));
   };
 
-  // Filter emails based on selected tab and date range
-  const getFilteredEmails = () => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+// Filter emails based on selected tab and date range
+const getFilteredEmails = () => {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // First filter by tab
+  let filtered = emails;
+  switch (filterTab) {
+    case "all-senders":
+      filtered = emails;
+      break;
+    case "subscriptions":
+      filtered = emails.filter(isSubscriptionEmail);
+      break;
+    case "newsletters":
+      filtered = emails.filter(isNewsletterEmail);
+      break;
+    case "marketing":
+      filtered = emails.filter(isMarketingEmail);
+      break;
+    case "most-frequent":
+      filtered = emails;
+      break;
+    default:
+      filtered = emails;
+  }
+
+  // Then apply date range filter
+  let result;
+  switch (dateRange) {
+    case "this-week":
+      result = filtered.filter((email) => {
+        if (!email.date) return true;
+        return new Date(email.date) >= oneWeekAgo;
+      });
+      break;
+
+    case "this-month":
+      result = filtered.filter((email) => {
+        if (!email.date) return true;
+        return new Date(email.date) >= oneMonthAgo;
+      });
+      break;
+
+    case "all-time":
+    default:
+      result = filtered;
+      break;
+  }
+
+  // Preserve emailCount in filtered results
+  return result.map((email) => ({
+    ...email,
+    emailCount: email.emailCount || 1,
+  }));
+};
+
 
   const filteredEmails = getFilteredEmails();
 
