@@ -133,36 +133,72 @@ const cleanEmailSnippet = (snippet: string): string => {
 
       console.log('[Load More] Calling fetch-sender-emails with pageToken:', currentState.nextPageToken);
 
-      // Call the new fetch-sender-emails function
-      const { data, error } = await supabase.functions.invoke('fetch-sender-emails', {
-        body: {
-          providerToken,
-          sender: sender,
-          maxResults: 5,
-          pageToken: currentState.nextPageToken,
-        },
-      });
+      // STEP 1 — Normal mode: fetch message IDs (quick estimate)
+const { data: estimateData, error: estimateError } =
+  await supabase.functions.invoke('fetch-sender-emails', {
+    body: {
+      providerToken,
+      sender: sender,
+      maxResults: 5,
+      pageToken: currentState.nextPageToken,
+    },
+  });
 
-      if (error) {
-        console.error('[Load More] Error:', error);
-        toast.error('Failed to load more emails');
-        return;
-      }
+if (estimateError) {
+  console.error('[Load More] Error:', estimateError);
+  toast.error('Failed to load more emails');
+  return;
+}
 
-      if (!data || !data.messages || data.messages.length === 0) {
-        // No more emails available
-        setSenderState(prev => ({
-          ...prev,
-          [sender]: {
-            ...prev[sender],
-            fullyLoaded: true,
-          },
-        }));
-        toast.info('No more emails to load for this sender');
-        return;
-      }
+if (!estimateData || !estimateData.messages || estimateData.messages.length === 0) {
+  setSenderState(prev => ({
+    ...prev,
+    [sender]: {
+      ...prev[sender],
+      fullyLoaded: true,
+    },
+  }));
+  toast.info('No more emails to load for this sender');
+  return;
+}
 
-      console.log('[Load More] Fetched', data.messages.length, 'message IDs');
+console.log('[Load More] Fetched', estimateData.messages.length, 'message IDs');
+
+// -----------------------------------------------------------------------
+// STEP 2 — REAL COUNT MODE: fetch true count (slow but accurate)
+// -----------------------------------------------------------------------
+const { data: countData, error: countError } =
+  await supabase.functions.invoke('fetch-sender-emails', {
+    body: {
+      providerToken,
+      sender: sender,
+      countOnly: true,   // ← IMPORTANT
+    },
+  });
+
+if (countError) {
+  console.error('[Count] Error:', countError);
+}
+
+const realCount = countData?.totalCount || estimateData.totalCount || 1;
+console.log(`[Count] Real count for ${sender} = ${realCount}`);
+
+// -----------------------------------------------------------------------
+// STEP 3 — Save accurate count into sender state
+// -----------------------------------------------------------------------
+setSenderState(prev => ({
+  ...prev,
+  [sender]: {
+    ...prev[sender],
+    nextPageToken: estimateData.nextPageToken || null,
+    emailCount: realCount,             // ← FIX applied here
+    fullyLoaded: !estimateData.nextPageToken,
+  },
+}));
+
+// Return fetched message IDs to the caller
+return estimateData.messages;
+
 
       // Fetch full details for each message
       const messageDetails = await Promise.all(
