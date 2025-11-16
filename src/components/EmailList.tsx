@@ -320,9 +320,71 @@ const cleanEmailSnippet = (snippet: string): string => {
         return;
       }
 
-      console.log(`[Gmail Fetch] Successfully fetched ${data.emails.length} emails from Gmail`);
-      setEmails(data.emails);
-      toast.success(`Loaded ${data.emails.length} emails from Gmail`);
+console.log(`[Gmail Fetch] Successfully fetched ${data.emails.length} emails from Gmail`);
+
+// Group emails by sender
+const emailsBySender = new Map<string, Email[]>();
+data.emails.forEach((email: Email) => {
+  if (!emailsBySender.has(email.sender)) {
+    emailsBySender.set(email.sender, [email]);
+  } else {
+    emailsBySender.get(email.sender)!.push(email);
+  }
+});
+
+const uniqueSenders = Array.from(emailsBySender.keys());
+console.log(`[Gmail Fetch] Found ${uniqueSenders.length} unique senders, fetching real counts...`);
+
+toast.info('Fetching email counts...', { duration: 2000 });
+
+// Fetch real counts for each sender
+const countsPromises = uniqueSenders.map(async (sender) => {
+  try {
+    // Extract email from sender string
+    const emailMatch = sender.match(/<(.+)>/);
+    const senderEmail = emailMatch ? emailMatch[1] : sender;
+    
+    const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+    url.searchParams.set('maxResults', '1');
+    url.searchParams.set('q', `from:${senderEmail}`);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${providerToken}`,
+      },
+    });
+    
+    if (!response.ok) return { sender, count: emailsBySender.get(sender)!.length };
+    
+    const countData = await response.json();
+    return { sender, count: countData.resultSizeEstimate || emailsBySender.get(sender)!.length };
+  } catch (error) {
+    console.error(`Error getting count for ${sender}:`, error);
+    return { sender, count: emailsBySender.get(sender)!.length };
+  }
+});
+
+// Wait for all counts with a small delay between each to avoid rate limits
+const counts = new Map<string, number>();
+for (let i = 0; i < countsPromises.length; i++) {
+  const result = await countsPromises[i];
+  counts.set(result.sender, result.count);
+  
+  // Add tiny delay to avoid rate limits (every 10 requests)
+  if (i > 0 && i % 10 === 0) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
+// Create final emails array with real counts
+const emailsWithCounts = Array.from(emailsBySender.entries()).map(([sender, senderEmails]) => ({
+  ...senderEmails[0], // Use first email as representative
+  emailCount: counts.get(sender) || senderEmails.length,
+}));
+
+console.log('[Gmail Fetch] Real counts fetched successfully');
+setEmails(emailsWithCounts);
+toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} senders`);
 
     } catch (error) {
       console.error('[Gmail Fetch] Unexpected error:', error);
