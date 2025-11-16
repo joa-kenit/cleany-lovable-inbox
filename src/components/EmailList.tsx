@@ -466,41 +466,21 @@ const cleanEmailSnippet = (snippet: string): string => {
     });
   }, []);
 
-  // Initialize sender state when emails are loaded or updated
-  useEffect(() => {
-    const newSenderState: Record<string, SenderLoadState> = {};
-    
-    // Group emails by sender
-    const grouped = emails.reduce((acc, email) => {
-      const sender = email.sender;
-      if (!acc[sender]) {
-        acc[sender] = [email];
-      } else {
-        acc[sender].push(email);
-      }
-      return acc;
-    }, {} as Record<string, Email[]>);
+ // Initialize state for each sender
+Object.entries(grouped).forEach(([sender, senderEmails]) => {
 
-    // Initialize state for each sender
-    Object.entries(grouped).forEach(([sender, senderEmails]) => {
-      // Preserve existing state if available, otherwise create new
-      if (senderState[sender]) {
-        newSenderState[sender] = {
-          ...senderState[sender],
-          emails: senderEmails,
-          totalCount: senderEmails.length,
-        };
-      } else {
-        newSenderState[sender] = {
-          emails: senderEmails,
-          totalCount: senderEmails.length,
-          nextPageToken: null,
-          fullyLoaded: false,
-        };
-      }
-    });
+  const prev = senderState[sender]; // keep previous Gmail totalCount if exists
 
-    setSenderState(newSenderState);
+  newSenderState[sender] = {
+    emails: senderEmails,                        // updated email list
+    totalCount: prev?.totalCount ?? senderEmails.length, // KEEP real Gmail count
+    nextPageToken: prev?.nextPageToken ?? null,
+    fullyLoaded: prev?.fullyLoaded ?? false,
+  };
+});
+
+setSenderState(newSenderState);
+
   }, [emails]);
 
   const applyLearnedPreferences = async () => {
