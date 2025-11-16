@@ -384,6 +384,7 @@ const emailsWithCounts = Array.from(emailsBySender.entries()).map(([sender, send
 
 console.log('[Gmail Fetch] Real counts fetched successfully');
 setEmails(emailsWithCounts);
+console.log('[Gmail Fetch] Sample email counts:', emailsWithCounts.slice(0, 3).map(e => ({ sender: e.sender, count: e.emailCount })));
 toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} senders`);
 
     } catch (error) {
