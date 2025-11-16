@@ -274,7 +274,7 @@ const cleanEmailSnippet = (snippet: string): string => {
       const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
         body: { 
           providerToken,
-          maxResults: 200  // Increased to fetch more emails
+          maxResults: 100  // Increased to fetch more emails
         },
       });
 
