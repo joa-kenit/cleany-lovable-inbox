@@ -26,6 +26,8 @@ async function getEmailCountForSender(providerToken: string, sender: string): Pr
     const emailMatch = sender.match(/<(.+)>/);
     const email = emailMatch ? emailMatch[1] : sender;
     
+    console.log(`[Count] Fetching count for: ${email}`);
+    
     const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
     url.searchParams.set('maxResults', '1');
     url.searchParams.set('q', `from:${email}`);
@@ -37,12 +39,21 @@ async function getEmailCountForSender(providerToken: string, sender: string): Pr
       },
     });
     
-    if (!response.ok) return 0;
+    console.log(`[Count] Response status for ${email}: ${response.status}`);
+    
+    if (!response.ok) {
+      console.error(`[Count] Failed for ${email}:`, await response.text());
+      return 0;
+    }
     
     const data = await response.json();
-    return data.resultSizeEstimate || 0;
+    const count = data.resultSizeEstimate || 0;
+    
+    console.log(`[Count] ${email} has ${count} emails`);
+    
+    return count;
   } catch (error) {
-    console.error(`Error getting count for ${sender}:`, error);
+    console.error(`[Count] Error getting count for ${sender}:`, error);
     return 0;
   }
 }
