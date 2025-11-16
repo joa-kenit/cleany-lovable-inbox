@@ -149,7 +149,7 @@ export const EmailCard = ({
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-base truncate">{sender.split('<')[0].trim()}</h3>
                 <Badge variant="secondary" className="text-xs shrink-0">
-                  {emailCount} {emailCount === 1 ? 'email' : 'emails'}
+                  {totalCount} {totalCount === 1 ? 'email' : 'emails'}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground truncate">
