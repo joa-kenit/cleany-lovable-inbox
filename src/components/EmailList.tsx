@@ -441,46 +441,6 @@ toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} 
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // First filter by tab
-    let filtered = emails;
-    switch (filterTab) {
-      case "all-senders":
-        filtered = emails;
-        break;
-      case "subscriptions":
-        filtered = emails.filter(isSubscriptionEmail);
-        break;
-      case "newsletters":
-        filtered = emails.filter(isNewsletterEmail);
-        break;
-      case "marketing":
-        filtered = emails.filter(isMarketingEmail);
-        break;
-      case "most-frequent":
-        filtered = emails;
-        break;
-      default:
-        filtered = emails;
-    }
-
-    // Then apply date range filter
-    switch (dateRange) {
-      case "this-week":
-        return filtered.filter(email => {
-          if (!email.date) return true;
-          return new Date(email.date) >= oneWeekAgo;
-        });
-      case "this-month":
-        return filtered.filter(email => {
-          if (!email.date) return true;
-          return new Date(email.date) >= oneMonthAgo;
-        });
-      case "all-time":
-      default:
-        return filtered;
-    }
-  };
-
   const filteredEmails = getFilteredEmails();
 
   // Group emails by sender and keep ALL emails from each sender
@@ -494,11 +454,15 @@ toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} 
     return acc;
   }, {} as Record<string, Email[]>);
 
-let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => ({
-  sender,
-  emails: senderEmails,
-  emailCount: senderEmails[0].emailCount || senderEmails.length,  // ← Use the fetched count!
-}));
+let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => {
+  const emailCount = senderEmails[0]?.emailCount || senderEmails.length;
+  console.log(`[Display] ${sender.substring(0, 20)}... has ${emailCount} emails`);
+  return {
+    sender,
+    emails: senderEmails,
+    emailCount: emailCount,
+  };
+});
 
   // Sort by frequency if "most-frequent" tab is selected
   if (filterTab === "most-frequent") {
