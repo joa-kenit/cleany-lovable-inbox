@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, UserX, Check, Loader2, ChevronDown, ChevronUp } from "lucide-react";
-import { Email, EmailAction } from "./EmailList";
+import { Email, EmailAction, SenderLoadState } from "./EmailList";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -17,6 +17,7 @@ interface EmailCardProps {
   isProcessing?: boolean;
   isLoadingMore?: boolean;
   hideUnsubscribe?: boolean;
+  senderLoadState?: SenderLoadState;
 }
 
 // Helper function to format time ago
@@ -49,13 +50,21 @@ export const EmailCard = ({
   emailCount, 
   isProcessing,
   isLoadingMore, 
-  hideUnsubscribe 
+  hideUnsubscribe,
+  senderLoadState 
 }: EmailCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const firstEmail = emails[0];
   const latestEmails = emails.slice(0, 5); // Show only latest 5
 
   const currentAction = firstEmail.action;
+
+  // Calculate remaining emails
+  const totalCount = senderLoadState?.totalCount || emailCount;
+  const loadedCount = senderLoadState?.emails.length || emails.length;
+  const remaining = totalCount - loadedCount;
+  const fullyLoaded = senderLoadState?.fullyLoaded || false;
+  const atCapLimit = loadedCount >= 100;
   
   const getActionButton = (action: EmailAction) => {
     const isSelected = currentAction === action;
@@ -229,20 +238,28 @@ export const EmailCard = ({
               ))}
             </div>
             {emails.length > 5 && (
-              <button
-                onClick={() => onLoadMore?.(sender)}
-                disabled={isLoadingMore}
-                className="w-full px-4 py-2 text-center text-xs text-muted-foreground border-t hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoadingMore ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading more emails...
-                  </span>
-                ) : (
-                  `+${emails.length - 5} more emails - Click to load`
-                )}
-              </button>
+              <div className="border-t">
+                {atCapLimit ? (
+                  <div className="w-full px-4 py-2 text-center text-xs text-muted-foreground bg-muted/30">
+                    You've loaded the last 100 emails from this sender.
+                  </div>
+                ) : remaining > 0 && !fullyLoaded ? (
+                  <button
+                    onClick={() => onLoadMore?.(sender)}
+                    disabled={isLoadingMore}
+                    className="w-full px-4 py-2 text-center text-xs text-primary hover:text-primary/80 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {isLoadingMore ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading more emails...
+                      </span>
+                    ) : (
+                      `+${remaining} more emails – Click to load`
+                    )}
+                  </button>
+                ) : null}
+              </div>
             )}
           </div>
         </CollapsibleContent>
