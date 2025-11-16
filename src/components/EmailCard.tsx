@@ -60,11 +60,16 @@ export const EmailCard = ({
   const currentAction = firstEmail.action;
 
   // Calculate remaining emails
-  const totalCount = senderLoadState?.totalCount || emailCount;
-  const loadedCount = senderLoadState?.emails.length || emails.length;
-  const remaining = totalCount - loadedCount;
-  const fullyLoaded = senderLoadState?.fullyLoaded || false;
-  const atCapLimit = loadedCount >= 100;
+// Correct counts
+const totalCount = senderLoadState?.totalCount ?? emailCount;
+const loadedCount = senderLoadState?.emails?.length ?? emails.length;
+
+const remaining = Math.max(totalCount - loadedCount, 0);
+
+// Hit limits?
+const fullyLoaded = senderLoadState?.fullyLoaded ?? false;
+const atCapLimit = loadedCount >= 100;
+
   
   const getActionButton = (action: EmailAction) => {
     const isSelected = currentAction === action;
@@ -149,8 +154,10 @@ export const EmailCard = ({
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-base truncate">{sender.split('<')[0].trim()}</h3>
                 <Badge variant="secondary" className="text-xs shrink-0">
-                  {totalCount} {totalCount === 1 ? 'email' : 'emails'}
-                </Badge>
+  {senderLoadState?.totalCount ?? emailCount}
+  {' '}
+  {(senderLoadState?.totalCount ?? emailCount) === 1 ? 'email' : 'emails'}
+</Badge>
               </div>
               <p className="text-sm text-muted-foreground truncate">
                 {sender.includes('<') ? sender.match(/<(.+)>/)?.[1] : sender}
