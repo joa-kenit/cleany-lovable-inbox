@@ -19,6 +19,32 @@ interface GmailMessageDetail {
   };
 }
 
+// Helper function to get real email count for a sender
+async function getEmailCountForSender(providerToken: string, sender: string): Promise<number> {
+  try {
+    const emailMatch = sender.match(/<(.+)>/);
+    const email = emailMatch ? emailMatch[1] : sender;
+    
+    const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+    url.searchParams.set('maxResults', '1');
+    url.searchParams.set('q', `from:${email}`);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${providerToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) return 0;
+    
+    const data = await response.json();
+    return data.resultSizeEstimate || 0;
+  } catch (error) {
+    console.error(`Error getting count for ${sender}:`, error);
+    return 0;
+  }
+}
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,7 +54,7 @@ serve(async (req) => {
   try {
     console.log('[Edge Function] fetch-gmail-emails invoked');
     
-    const { providerToken, maxResults = 30, maxPages = 1, senderFilter } = await req.json();
+    const { providerToken, maxResults = 25, maxPages = 1, senderFilter } = await req.json();
 
     console.log('[Edge Function] Request params:', { 
       hasProviderToken: !!providerToken,
@@ -319,16 +345,40 @@ snippet = snippet
       }
     }
 
-    console.log(`[Edge Function] Successfully processed ${allEmails.length} emails out of ${allMessages.length} fetched`);
+console.log(`[Edge Function] Successfully processed ${allEmails.length} emails out of ${allMessages.length} fetched`);
 
-    return new Response(
-      JSON.stringify({ emails: allEmails }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+// Group emails by sender
+const emailsBySender = new Map<string, any>();
+allEmails.forEach((email: any) => {
+  if (!emailsBySender.has(email.sender)) {
+    emailsBySender.set(email.sender, email);
+  }
+});
 
+const uniqueEmails = Array.from(emailsBySender.values());
+console.log(`[Edge Function] Grouped into ${uniqueEmails.length} unique senders`);
+
+// Fetch real counts for each unique sender
+console.log('[Edge Function] Fetching real email counts...');
+const emailsWithRealCounts = await Promise.all(
+  uniqueEmails.map(async (email) => {
+    const realCount = await getEmailCountForSender(providerToken, email.sender);
+    return {
+      ...email,
+      emailCount: realCount
+    };
+  })
+);
+
+console.log('[Edge Function] Real counts fetched');
+
+return new Response(
+  JSON.stringify({ emails: emailsWithRealCounts }),
+  { 
+    status: 200, 
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+  }
+);
   } catch (error) {
     console.error('[Edge Function] Unexpected error in fetch-gmail-emails:', {
       error: error,
