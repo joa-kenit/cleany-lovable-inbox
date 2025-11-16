@@ -5,77 +5,89 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper for small batch delay (prevents Gmail 429 errors)
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { providerToken, sender, maxResults = 5, pageToken = null } = await req.json();
+    const { providerToken, sender, maxResults = 5, pageToken = null, countOnly = false } =
+      await req.json();
 
     if (!providerToken || !sender) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: providerToken and sender' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing providerToken or sender" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Fetching emails from sender: ${sender}, maxResults: ${maxResults}, pageToken: ${pageToken}`);
+    // ---------------------------------------------------
+    // MODE 1 — COUNT ONLY (get REAL totalCount)
+    // ---------------------------------------------------
+    if (countOnly) {
+      let nextPage = null;
+      let total = 0;
 
-    // Build Gmail API query parameters
+      do {
+        const params = new URLSearchParams({
+          q: `in:inbox from:${sender}`,
+          maxResults: "500"
+        });
+        if (nextPage) params.append("pageToken", nextPage);
+
+        const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`;
+
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${providerToken}` }
+        });
+
+        const data = await res.json();
+
+        total += data.messages?.length || 0;
+        nextPage = data.nextPageToken || null;
+
+        // prevent Gmail quota throttling
+        await delay(120);
+      } while (nextPage);
+
+      return new Response(
+        JSON.stringify({ totalCount: total }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ---------------------------------------------------
+    // MODE 2 — NORMAL (load X message IDs)
+    // ---------------------------------------------------
     const params = new URLSearchParams({
       q: `in:inbox from:${sender}`,
       maxResults: maxResults.toString(),
     });
+    if (pageToken) params.append("pageToken", pageToken);
 
-    if (pageToken) {
-      params.append('pageToken', pageToken);
-    }
-
-    // Fetch message IDs from Gmail API
     const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`;
     const listResponse = await fetch(listUrl, {
-      headers: {
-        'Authorization': `Bearer ${providerToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${providerToken}` },
     });
 
-    if (!listResponse.ok) {
-      const errorText = await listResponse.text();
-      console.error('Gmail API error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch emails from Gmail API', details: errorText }),
-        { status: listResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const listData = await listResponse.json();
-    
-    // Return the response with message IDs only
-    const response = {
-      totalCount: listData.resultSizeEstimate || 0,
-      messages: listData.messages || [],
-      nextPageToken: listData.nextPageToken || null,
-    };
-
-    console.log(`Found ${response.totalCount} emails from ${sender}, returned ${response.messages.length} message IDs`);
 
     return new Response(
-      JSON.stringify(response),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({
+        totalCount: listData.resultSizeEstimate || 0, // UI will replace this with countOnly result
+        messages: listData.messages || [],
+        nextPageToken: listData.nextPageToken || null,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
-  } catch (error) {
-    console.error('Error in fetch-sender-emails:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+  } catch (err) {
+    console.error("Error in fetch-sender-emails:", err);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: err.message || "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
