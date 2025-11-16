@@ -154,11 +154,9 @@ const atCapLimit = loadedCount >= 100;
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-base truncate">{sender.split('<')[0].trim()}</h3>
                 <Badge variant="secondary" className="text-xs shrink-0">
-  {senderLoadState?.totalCount ?? emailCount}
-  {' '}
-  {(senderLoadState?.totalCount ?? emailCount) === 1 ? 'email' : 'emails'}
-</Badge>
-              </div>
+                {totalCount} {totalCount === 1 ? 'email' : 'emails'}
+              </Badge>
+           </div>
               <p className="text-sm text-muted-foreground truncate">
                 {sender.includes('<') ? sender.match(/<(.+)>/)?.[1] : sender}
               </p>
