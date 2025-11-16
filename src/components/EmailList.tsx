@@ -56,6 +56,13 @@ export interface Email {
   isNewsletter?: boolean;
 }
 
+export interface SenderLoadState {
+  emails: Email[];
+  totalCount: number;
+  nextPageToken: string | null;
+  fullyLoaded: boolean;
+}
+
 export const EmailList = () => {
   const navigate = useNavigate();
   const [emails, setEmails] = useState<Email[]>([]);
@@ -73,6 +80,7 @@ export const EmailList = () => {
   const [displayLimit, setDisplayLimit] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadingMoreSender, setLoadingMoreSender] = useState<string | null>(null);
+  const [senderState, setSenderState] = useState<Record<string, SenderLoadState>>({});
 
 const cleanEmailSnippet = (snippet: string): string => {
   // Remove URLs
@@ -395,6 +403,43 @@ const cleanEmailSnippet = (snippet: string): string => {
       }
     });
   }, []);
+
+  // Initialize sender state when emails are loaded or updated
+  useEffect(() => {
+    const newSenderState: Record<string, SenderLoadState> = {};
+    
+    // Group emails by sender
+    const grouped = emails.reduce((acc, email) => {
+      const sender = email.sender;
+      if (!acc[sender]) {
+        acc[sender] = [email];
+      } else {
+        acc[sender].push(email);
+      }
+      return acc;
+    }, {} as Record<string, Email[]>);
+
+    // Initialize state for each sender
+    Object.entries(grouped).forEach(([sender, senderEmails]) => {
+      // Preserve existing state if available, otherwise create new
+      if (senderState[sender]) {
+        newSenderState[sender] = {
+          ...senderState[sender],
+          emails: senderEmails,
+          totalCount: senderEmails.length,
+        };
+      } else {
+        newSenderState[sender] = {
+          emails: senderEmails,
+          totalCount: senderEmails.length,
+          nextPageToken: null,
+          fullyLoaded: false,
+        };
+      }
+    });
+
+    setSenderState(newSenderState);
+  }, [emails]);
 
   const applyLearnedPreferences = async () => {
     if (emails.length === 0) return;
