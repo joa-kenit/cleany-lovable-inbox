@@ -457,31 +457,41 @@ const cleanEmailSnippet = (snippet: string): string => {
     }, 300);
   };
 
-  useEffect(() => {
-    fetchGmailEmails().then(() => {
-      analyzeEmails();
-      if (autoApplyEnabled) {
-        applyLearnedPreferences();
-      }
-    });
-  }, []);
+useEffect(() => {
+  fetchGmailEmails().then(() => {
+    analyzeEmails();
+    if (autoApplyEnabled) {
+      applyLearnedPreferences();
+    }
+  });
+}, []);
 
- // Initialize state for each sender
-Object.entries(grouped).forEach(([sender, senderEmails]) => {
+// ✅ INSERTED BLOCK
+useEffect(() => {
+  const newSenderState: Record<string, SenderLoadState> = {};
 
-  const prev = senderState[sender]; // keep previous Gmail totalCount if exists
+  const grouped = emails.reduce((acc, email) => {
+    const sender = email.sender;
+    if (!acc[sender]) acc[sender] = [];
+    acc[sender].push(email);
+    return acc;
+  }, {} as Record<string, Email[]>);
 
-  newSenderState[sender] = {
-    emails: senderEmails,                        // updated email list
-    totalCount: prev?.totalCount ?? senderEmails.length, // KEEP real Gmail count
-    nextPageToken: prev?.nextPageToken ?? null,
-    fullyLoaded: prev?.fullyLoaded ?? false,
-  };
-});
+  Object.entries(grouped).forEach(([sender, senderEmails]) => {
+    const prev = senderState[sender];
 
-setSenderState(newSenderState);
+    newSenderState[sender] = {
+      emails: senderEmails,
+      totalCount: prev?.totalCount ?? senderEmails.length,
+      nextPageToken: prev?.nextPageToken ?? null,
+      fullyLoaded: prev?.fullyLoaded ?? false,
+    };
+  });
 
-  }, [emails]);
+  setSenderState(newSenderState);
+}, [emails]);
+
+
 
   const applyLearnedPreferences = async () => {
     if (emails.length === 0) return;
