@@ -494,11 +494,11 @@ toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} 
     return acc;
   }, {} as Record<string, Email[]>);
 
-  let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => ({
-    sender,
-    emails: senderEmails,
-    emailCount: senderEmails.length,
-  }));
+let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => ({
+  sender,
+  emails: senderEmails,
+  emailCount: senderEmails[0].emailCount || senderEmails.length,  // ← Use the fetched count!
+}));
 
   // Sort by frequency if "most-frequent" tab is selected
   if (filterTab === "most-frequent") {
