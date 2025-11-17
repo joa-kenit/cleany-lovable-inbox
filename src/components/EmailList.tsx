@@ -304,130 +304,142 @@ return estimateData.messages;
         return;
       }
 
-      console.log('[Gmail Fetch] Provider token found, calling edge function...');
+      console.log('[Gmail Fetch] Provider token found, fetching unique senders...');
 
-      // Call edge function to fetch Gmail emails
+      // First, get a list of unique senders (fetch 100 emails to get good sender coverage)
       const { data, error } = await supabase.functions.invoke('fetch-gmail-emails', {
         body: { 
           providerToken,
-          maxResults: 100  // Increased to fetch more emails
+          maxResults: 100
         },
       });
 
-      console.log('[Gmail Fetch] Edge function response:', { 
-        hasData: !!data, 
-        hasError: !!error,
-        dataKeys: data ? Object.keys(data) : [],
+      if (error || !data || data.error || !data.emails || data.emails.length === 0) {
+        console.error('[Gmail Fetch] Error or no emails:', error || data?.error);
+        toast.error(data?.error || 'Failed to fetch emails');
+        setEmails([]);
+        return;
+      }
+
+      // Group to get unique senders
+      const emailsBySender = new Map<string, Email[]>();
+      data.emails.forEach((email: Email) => {
+        if (!emailsBySender.has(email.sender)) {
+          emailsBySender.set(email.sender, [email]);
+        }
       });
 
-      if (error) {
-        console.error('[Gmail Fetch] Edge function error:', error);
-        toast.error('Failed to fetch Gmail emails: ' + (error.message || 'Unknown error'));
-        setEmails([]);
-        return;
+      const uniqueSenders = Array.from(emailsBySender.keys());
+      console.log(`[Gmail Fetch] Found ${uniqueSenders.length} unique senders`);
+
+      toast.info(`Loading details for ${uniqueSenders.length} senders...`, { duration: 2000 });
+
+      // For each sender, fetch 5 emails + real count
+      const senderPromises = uniqueSenders.map(async (sender) => {
+        try {
+          // Extract email from sender string
+          const emailMatch = sender.match(/<(.+)>/);
+          const senderEmail = emailMatch ? emailMatch[1] : sender;
+
+          // Fetch first 5 emails for this sender
+          const { data: senderData, error: senderError } = await supabase.functions.invoke('fetch-sender-emails', {
+            body: {
+              providerToken,
+              sender: senderEmail,
+              maxResults: 5,
+              pageToken: null,
+            },
+          });
+
+          if (senderError || !senderData) {
+            console.error(`Error fetching emails for ${sender}:`, senderError);
+            return null;
+          }
+
+          // Fetch full email details
+          const messageDetails = await Promise.all(
+            (senderData.messages || []).map(async (msg: { id: string }) => {
+              const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
+              const response = await fetch(detailUrl, {
+                headers: { 'Authorization': `Bearer ${providerToken}` },
+              });
+              return response.json();
+            })
+          );
+
+          // Process messages into Email objects
+          const processedEmails: Email[] = messageDetails.map((msg: any) => {
+            const headers = msg.payload?.headers || [];
+            const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
+            const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
+            const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
+
+            return {
+              id: msg.id,
+              sender: fromHeader?.value || 'Unknown',
+              subject: subjectHeader?.value || '(No Subject)',
+              snippet: msg.snippet || '',
+              action: null,
+              date: dateHeader?.value,
+            };
+          });
+
+          // Get real count for this sender
+          const { data: countData, error: countError } = await supabase.functions.invoke('fetch-sender-emails', {
+            body: {
+              providerToken,
+              sender: senderEmail,
+              countOnly: true,
+            },
+          });
+
+          const realCount = countData?.totalCount || processedEmails.length;
+
+          return {
+            sender,
+            emails: processedEmails,
+            totalCount: realCount,
+            nextPageToken: senderData.nextPageToken || null,
+          };
+        } catch (error) {
+          console.error(`Error processing sender ${sender}:`, error);
+          return null;
+        }
+      });
+
+      // Wait for all senders to be processed (with small delays to avoid rate limits)
+      const senderResults = [];
+      for (let i = 0; i < senderPromises.length; i++) {
+        const result = await senderPromises[i];
+        if (result) {
+          senderResults.push(result);
+        }
+        
+        // Add delay every 5 requests to avoid rate limits
+        if (i > 0 && i % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
       }
 
-      if (!data) {
-        console.error('[Gmail Fetch] No data returned from edge function');
-        toast.error('No data received from Gmail');
-        setEmails([]);
-        return;
-      }
+      // Build senderState and emails array
+      const initialSenderState: Record<string, SenderLoadState> = {};
+      const allEmails: Email[] = [];
 
-      if (data.error) {
-        console.error('[Gmail Fetch] Gmail API error from edge function:', data.error);
-        toast.error(data.error);
-        setEmails([]);
-        return;
-      }
+      senderResults.forEach(({ sender, emails, totalCount, nextPageToken }) => {
+        initialSenderState[sender] = {
+          emails,
+          totalCount,
+          nextPageToken,
+          fullyLoaded: !nextPageToken || emails.length >= 100,
+        };
+        allEmails.push(...emails);
+      });
 
-      // Validate emails array with proper null checks
-      if (!data.emails || !Array.isArray(data.emails)) {
-        console.error('[Gmail Fetch] Invalid emails data structure:', data);
-        toast.error('Invalid email data received');
-        setEmails([]);
-        return;
-      }
+      setSenderState(initialSenderState);
+      setEmails(allEmails);
 
-      if (data.emails.length === 0) {
-        console.log('[Gmail Fetch] No emails found in inbox');
-        toast.info('No emails found in your inbox');
-        setEmails([]);
-        return;
-      }
-
-console.log(`[Gmail Fetch] Successfully fetched ${data.emails.length} emails from Gmail`);
-
-// Group emails by sender
-const emailsBySender = new Map<string, Email[]>();
-data.emails.forEach((email: Email) => {
-  if (!emailsBySender.has(email.sender)) {
-    emailsBySender.set(email.sender, [email]);
-  } else {
-    emailsBySender.get(email.sender)!.push(email);
-  }
-});
-
-const uniqueSenders = Array.from(emailsBySender.keys());
-console.log(`[Gmail Fetch] Found ${uniqueSenders.length} unique senders, fetching real counts...`);
-
-toast.info('Fetching email counts...', { duration: 2000 });
-
-// Fetch real counts for each sender
-const countsPromises = uniqueSenders.map(async (sender) => {
-  try {
-    // Extract email from sender string
-    const emailMatch = sender.match(/<(.+)>/);
-    const senderEmail = emailMatch ? emailMatch[1] : sender;
-    
-    const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
-    url.searchParams.set('maxResults', '1');
-    url.searchParams.set('q', `from:${senderEmail}`);
-    
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${providerToken}`,
-      },
-    });
-    
-    if (!response.ok) return { sender, count: emailsBySender.get(sender)!.length };
-    
-    const countData = await response.json();
-    return { sender, count: countData.resultSizeEstimate || emailsBySender.get(sender)!.length };
-  } catch (error) {
-    console.error(`Error getting count for ${sender}:`, error);
-    return { sender, count: emailsBySender.get(sender)!.length };
-  }
-});
-
-// Wait for all counts with a small delay between each to avoid rate limits
-const counts = new Map<string, number>();
-for (let i = 0; i < countsPromises.length; i++) {
-  const result = await countsPromises[i];
-  counts.set(result.sender, result.count);
-  
-  // Add tiny delay to avoid rate limits (every 10 requests)
-  if (i > 0 && i % 10 === 0) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-}
-
-// Initialize senderState with real counts
-const initialSenderState: Record<string, SenderLoadState> = {};
-emailsBySender.forEach((senderEmails, sender) => {
-  initialSenderState[sender] = {
-    emails: senderEmails,
-    totalCount: counts.get(sender) || senderEmails.length,
-    nextPageToken: null,
-    fullyLoaded: false,
-  };
-});
-setSenderState(initialSenderState);
-
-console.log('[Gmail Fetch] Real counts fetched successfully');
-setEmails(data.emails); // Keep ALL emails, not just representatives
-console.log('[Gmail Fetch] Sample sender counts:', Array.from(counts.entries()).slice(0, 3).map(([sender, count]) => ({ sender: sender.substring(0, 30), count })));
-toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} senders`);
+      console.log('[Gmail Fetch] Successfully loaded emails with accurate counts');
+      toast.success(`Loaded emails from ${senderResults.length} senders`);
 
     } catch (error) {
       console.error('[Gmail Fetch] Unexpected error:', error);
