@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles, Mail, ArrowDown } from "lucide-react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion"; // ✅ Lovable uses framer-motion
 
 interface HeroProps {
   onConnect: () => void;
@@ -10,11 +10,11 @@ export const Hero = ({ onConnect }: HeroProps) => {
   return (
     <section className="relative overflow-hidden px-6 py-32 lg:px-8 lg:py-48 bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50">
 
-      {/* Background blobs */}
+      {/* Background blobs (no unsupported animate-blob classes) */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob" />
-        <div className="absolute top-40 right-10 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000" />
+        <div className="absolute top-20 left-10 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+        <div className="absolute top-40 right-10 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+        <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
       </div>
 
       {/* Floating shapes */}
@@ -49,7 +49,7 @@ export const Hero = ({ onConnect }: HeroProps) => {
             <span>Your inbox, decluttered</span>
           </motion.div>
 
-          {/* Title + Subtitle */}
+          {/* Title */}
           <motion.div
             className="flex flex-col gap-6"
             initial={{ opacity: 0, y: 20 }}
@@ -87,7 +87,7 @@ export const Hero = ({ onConnect }: HeroProps) => {
             </motion.p>
           </motion.div>
 
-          {/* Buttons */}
+          {/* CTA Buttons */}
           <motion.div
             className="flex flex-col sm:flex-row gap-4"
             initial={{ opacity: 0, y: 10 }}
@@ -124,29 +124,17 @@ export const Hero = ({ onConnect }: HeroProps) => {
             transition={{ delay: 1.1, duration: 0.5 }}
           >
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <span className="text-rose-800 text-lg">✔</span>
               No credit card required
             </div>
 
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <span className="text-rose-800 text-lg">✔</span>
               Free forever
             </div>
           </motion.div>
 
-          {/* Scroll Indicator */}
+          {/* Scroll indicator */}
           <motion.div
             className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
             animate={{ y: [0, 10, 0] }}
