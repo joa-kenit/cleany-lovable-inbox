@@ -412,15 +412,21 @@ for (let i = 0; i < countsPromises.length; i++) {
   }
 }
 
-// Create final emails array with real counts
-const emailsWithCounts = Array.from(emailsBySender.entries()).map(([sender, senderEmails]) => ({
-  ...senderEmails[0], // Use first email as representative
-  emailCount: counts.get(sender) || senderEmails.length,
-}));
+// Initialize senderState with real counts
+const initialSenderState: Record<string, SenderLoadState> = {};
+emailsBySender.forEach((senderEmails, sender) => {
+  initialSenderState[sender] = {
+    emails: senderEmails,
+    totalCount: counts.get(sender) || senderEmails.length,
+    nextPageToken: null,
+    fullyLoaded: false,
+  };
+});
+setSenderState(initialSenderState);
 
 console.log('[Gmail Fetch] Real counts fetched successfully');
-setEmails(emailsWithCounts);
-console.log('[Gmail Fetch] Sample email counts:', emailsWithCounts.slice(0, 3).map(e => ({ sender: e.sender, count: e.emailCount })));
+setEmails(data.emails); // Keep ALL emails, not just representatives
+console.log('[Gmail Fetch] Sample sender counts:', Array.from(counts.entries()).slice(0, 3).map(([sender, count]) => ({ sender: sender.substring(0, 30), count })));
 toast.success(`Loaded ${data.emails.length} emails from ${uniqueSenders.length} senders`);
 
     } catch (error) {
