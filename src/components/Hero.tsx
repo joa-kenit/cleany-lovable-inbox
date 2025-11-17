@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles, Mail, ArrowDown } from "lucide-react";
-import { motion } from "framer-motion"; // ✅ Lovable uses framer-motion
+import { motion } from "motion/react"; // ✅ Correct import for Lovable
 
 interface HeroProps {
   onConnect: () => void;
@@ -10,7 +10,7 @@ export const Hero = ({ onConnect }: HeroProps) => {
   return (
     <section className="relative overflow-hidden px-6 py-32 lg:px-8 lg:py-48 bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50">
 
-      {/* Background blobs (no unsupported animate-blob classes) */}
+      {/* Background blobs */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-20 left-10 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
         <div className="absolute top-40 right-10 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
@@ -87,7 +87,7 @@ export const Hero = ({ onConnect }: HeroProps) => {
             </motion.p>
           </motion.div>
 
-          {/* CTA Buttons */}
+          {/* Buttons */}
           <motion.div
             className="flex flex-col sm:flex-row gap-4"
             initial={{ opacity: 0, y: 10 }}
