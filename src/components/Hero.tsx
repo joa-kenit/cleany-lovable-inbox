@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles, Mail, ArrowDown } from "lucide-react";
-import { motion } from "motion/react"; // ✅ Correct import for Lovable
+import { motion } from "framer-motion";   // ✅ Correct import
 
 interface HeroProps {
   onConnect: () => void;
@@ -12,9 +12,9 @@ export const Hero = ({ onConnect }: HeroProps) => {
 
       {/* Background blobs */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
-        <div className="absolute top-40 right-10 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
-        <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+        <div className="absolute top-20 left-10 w-96 h-96 bg-rose-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob" />
+        <div className="absolute top-40 right-10 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-2000" />
+        <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-amber-300 rounded-full mix-blend-multiply filter blur-3xl opacity-40 animate-blob animation-delay-4000" />
       </div>
 
       {/* Floating shapes */}
@@ -23,11 +23,13 @@ export const Hero = ({ onConnect }: HeroProps) => {
         animate={{ y: [0, -20, 0], rotate: [0, 90, 0] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
+
       <motion.div
         className="absolute bottom-32 left-1/4 w-16 h-16 bg-orange-400 rounded-lg opacity-20"
         animate={{ y: [0, 20, 0], rotate: [0, -90, 0] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
       />
+
       <motion.div
         className="absolute top-1/2 left-12 w-12 h-12 border-4 border-amber-400 rounded-lg opacity-20"
         animate={{ x: [0, 15, 0], y: [0, -15, 0], rotate: [0, 180, 0] }}
@@ -49,7 +51,7 @@ export const Hero = ({ onConnect }: HeroProps) => {
             <span>Your inbox, decluttered</span>
           </motion.div>
 
-          {/* Title */}
+          {/* Title + Subtitle */}
           <motion.div
             className="flex flex-col gap-6"
             initial={{ opacity: 0, y: 20 }}
@@ -124,17 +126,29 @@ export const Hero = ({ onConnect }: HeroProps) => {
             transition={{ delay: 1.1, duration: 0.5 }}
           >
             <div className="flex items-center gap-2">
-              <span className="text-rose-800 text-lg">✔</span>
+              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
               No credit card required
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-rose-800 text-lg">✔</span>
+              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
               Free forever
             </div>
           </motion.div>
 
-          {/* Scroll indicator */}
+          {/* Scroll Indicator */}
           <motion.div
             className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
             animate={{ y: [0, 10, 0] }}
