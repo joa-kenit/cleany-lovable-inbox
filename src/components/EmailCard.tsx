@@ -11,6 +11,7 @@ interface EmailCardProps {
   sender: string;
   onActionChange: (id: string, action: EmailAction) => void;
   onDelete?: (id: string, sender: string) => void;
+  onDeleteAll?: (sender: string) => void;
   onUnsubscribe?: (id: string, sender: string) => void;
   onLoadMore?: (sender: string) => void;
   emailCount: number;
@@ -44,7 +45,8 @@ export const EmailCard = ({
   emails, 
   sender, 
   onActionChange, 
-  onDelete, 
+  onDelete,
+  onDeleteAll, 
   onUnsubscribe,
   onLoadMore, 
   emailCount, 
@@ -154,12 +156,21 @@ const atCapLimit = loadedCount >= 100;
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-base truncate">{sender.split('<')[0].trim()}</h3>
                 <Badge variant="secondary" className="text-xs shrink-0">
-                {totalCount} {totalCount === 1 ? 'email' : 'emails'}
-              </Badge>
-           </div>
+                  {totalCount} {totalCount === 1 ? 'email' : 'emails'}
+                </Badge>
+              </div>
               <p className="text-sm text-muted-foreground truncate">
                 {sender.includes('<') ? sender.match(/<(.+)>/)?.[1] : sender}
               </p>
+              {onDeleteAll && totalCount > 0 && (
+                <button
+                  onClick={() => onDeleteAll(sender)}
+                  className="text-xs text-destructive hover:text-destructive/80 hover:underline mt-1 transition-colors"
+                  disabled={isProcessing}
+                >
+                  Delete all {totalCount} emails from this sender
+                </button>
+              )}
             </div>
 
             {/* Action Buttons */}

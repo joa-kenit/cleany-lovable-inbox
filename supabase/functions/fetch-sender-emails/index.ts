@@ -85,8 +85,9 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("Error in fetch-sender-emails:", err);
+    const error = err as Error;
     return new Response(
-      JSON.stringify({ error: err.message || "Unknown error" }),
+      JSON.stringify({ error: error.message || "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
