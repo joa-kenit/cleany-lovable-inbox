@@ -202,7 +202,7 @@ return estimateData.messages;
 
       // Fetch full details for each message
       const messageDetails = await Promise.all(
-        data.messages.map(async (msg: { id: string }) => {
+        estimateData.messages.map(async (msg: { id: string }) => {
           const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
           const response = await fetch(detailUrl, {
             headers: { 'Authorization': `Bearer ${providerToken}` },
@@ -243,14 +243,14 @@ return estimateData.messages;
         const updatedEmails = [...currentEmails, ...newEmails];
         
         // Check if we've hit the 100 email cap or no more pages
-        const fullyLoaded = !data.nextPageToken || updatedEmails.length >= 100;
+        const fullyLoaded = !estimateData.nextPageToken || updatedEmails.length >= 100;
 
         return {
           ...prev,
           [sender]: {
             emails: updatedEmails.slice(0, 100), // Cap at 100
-            totalCount: data.totalCount || updatedEmails.length,
-            nextPageToken: data.nextPageToken || null,
+            totalCount: realCount,
+            nextPageToken: estimateData.nextPageToken || null,
             fullyLoaded,
           },
         };
@@ -544,11 +544,13 @@ const getFilteredEmails = () => {
   }, {} as Record<string, Email[]>);
 
 let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => {
-  const emailCount = senderEmails[0]?.emailCount || senderEmails.length;
+  const typedEmails = senderEmails as Email[];
+  const senderStateCount = senderState[sender]?.totalCount;
+  const emailCount = senderStateCount || typedEmails[0]?.emailCount || typedEmails.length;
   console.log(`[Display] ${sender.substring(0, 20)}... has ${emailCount} emails`);
   return {
     sender,
-    emails: senderEmails,
+    emails: typedEmails,
     emailCount: emailCount,
   };
 });
@@ -732,23 +734,33 @@ const handleImmediateDelete = async (id: string, sender: string) => {
       throw new Error('No access token available');
     }
 
-    // Find all email IDs from this sender
-    const emailsToDelete = emails.filter(email => email.sender === sender);
-    
-    // Delete each email from Gmail
-    for (const email of emailsToDelete) {
-      const gmailId = email.id.split('-')[0]; // Extract Gmail message ID
-      await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/trash`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
+    // Delete single email from Gmail
+    const gmailId = id.split('-')[0]; // Extract Gmail message ID
+    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/trash`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Update sender state
+    setSenderState(prev => {
+      const current = prev[sender];
+      if (!current) return prev;
+      
+      return {
+        ...prev,
+        [sender]: {
+          ...current,
+          emails: current.emails.filter(e => e.id !== id),
+          totalCount: Math.max(0, current.totalCount - 1),
+        }
+      };
+    });
 
     // Show success toast with undo
-    const toastId = toast.success(`Deleted emails from ${sender}`, {
+    toast.success(`Email deleted`, {
       duration: 5000,
       action: {
         label: "Undo",
@@ -759,9 +771,69 @@ const handleImmediateDelete = async (id: string, sender: string) => {
       },
     });
   } catch (error) {
-    console.error('Error deleting emails:', error);
+    console.error('Error deleting email:', error);
     // Restore previous state on error
     setEmails(previousEmails);
+    toast.error('Failed to delete email. Please try again.');
+  }
+};
+
+const handleDeleteAllFromSender = async (sender: string) => {
+  const previousEmails = [...emails];
+  const previousSenderState = { ...senderState };
+  
+  // Extract email from sender string
+  const emailMatch = sender.match(/<(.+)>/);
+  const senderEmail = emailMatch ? emailMatch[1] : sender;
+  
+  // Optimistically remove all emails from this sender
+  const updatedEmails = emails.filter(email => email.sender !== sender);
+  setEmails(updatedEmails);
+  
+  // Update sender state
+  setSenderState(prev => {
+    const newState = { ...prev };
+    delete newState[sender];
+    return newState;
+  });
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.provider_token;
+
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    toast.info(`Deleting all emails from ${sender.split('<')[0].trim()}...`, { duration: 3000 });
+
+    // Call bulk delete edge function
+    const { data, error } = await supabase.functions.invoke('delete-sender-emails', {
+      body: {
+        providerToken: accessToken,
+        sender: senderEmail,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    toast.success(`Deleted ${data.deletedCount} emails from ${sender.split('<')[0].trim()}`, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setEmails(previousEmails);
+          setSenderState(previousSenderState);
+          toast.info("Delete undone");
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error deleting all emails from sender:', error);
+    setEmails(previousEmails);
+    setSenderState(previousSenderState);
     toast.error('Failed to delete emails. Please try again.');
   }
 };
@@ -1250,10 +1322,11 @@ const isSystemEmail = (email: any) => {
             return (
               <EmailCard
                 key={group.sender}
-                emails={group.emails}
+                emails={group.emails as Email[]}
                 sender={group.sender}
                 onActionChange={handleActionChange}
                 onDelete={handleImmediateDelete}
+                onDeleteAll={handleDeleteAllFromSender}
                 onUnsubscribe={handleImmediateUnsubscribe}
                 onLoadMore={loadMoreEmails}
                 emailCount={group.emailCount}
