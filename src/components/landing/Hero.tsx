@@ -56,26 +56,15 @@ export function LandingHero() {
 
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-col items-center text-center gap-10">
-          <motion.div 
-            className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm text-rose-800 px-5 py-2.5 rounded-full shadow-lg border border-rose-200"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Your inbox, decluttered</span>
-          </motion.div>
-          
-          <motion.div 
+          <motion.div
             className="flex flex-col gap-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-6xl lg:text-7xl xl:text-8xl tracking-tight font-bold">
+            <h1 className="text-6xl lg:text-7xl xl:text-8xl tracking-tight font-bold font-sora leading-tight pb-2">
               <motion.span 
-                className="inline-block bg-gradient-to-r from-rose-600 via-rose-700 to-orange-600 bg-clip-text text-transparent"
+                className="inline-block bg-gradient-to-r from-rose-600 via-rose-700 to-orange-600 bg-clip-text text-transparent leading-tight"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
@@ -84,7 +73,7 @@ export function LandingHero() {
               </motion.span>
               <br />
               <motion.span 
-                className="inline-block bg-gradient-to-r from-orange-600 via-amber-600 to-rose-600 bg-clip-text text-transparent"
+                className="inline-block bg-gradient-to-r from-orange-600 via-amber-600 to-rose-600 bg-clip-text text-transparent leading-tight"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.6 }}
@@ -118,31 +107,6 @@ export function LandingHero() {
                 Get Started Free
               </Button>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button size="lg" variant="outline" className="border-2 border-rose-800 text-rose-800 hover:bg-rose-800 hover:text-white px-8 py-6 text-lg bg-white/80 backdrop-blur-sm">
-                Watch Demo
-              </Button>
-            </motion.div>
-          </motion.div>
-
-          <motion.div 
-            className="flex items-center gap-8 text-sm text-rose-900/70"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.1, duration: 0.5 }}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Free forever
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-rose-800" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              No credit card required
-            </div>
           </motion.div>
 
           {/* Scroll indicator */}
