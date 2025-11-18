@@ -1348,26 +1348,36 @@ const isSystemEmail = (email: any) => {
       </div>
 
       {/* Inbox Personality Section */}
-      <div className="mb-6 bg-card rounded-lg border border-border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Inbox Personality</h2>
+      <div className="mb-6 bg-card rounded-lg border border-border p-6 shadow-sm">
+        {/* Mascot Header */}
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
+            🧼
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              Inbox Personality
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Meet Cleany, your inbox guide
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">
-          Your email breakdown by category
-        </p>
+
+        {/* Category Breakdown */}
         <div className="space-y-3 mb-6">
           {Object.entries(categoryPercentages)
             .sort(([, a], [, b]) => b - a)
+            .filter(([, percentage]) => percentage > 0)
             .map(([category, percentage]) => (
               <div key={category} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium capitalize">{category}</span>
-                  <span className="text-muted-foreground">{percentage}%</span>
+                  <span className="text-muted-foreground font-semibold">{percentage}%</span>
                 </div>
-                <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+                    className="bg-gradient-to-r from-primary to-primary/80 h-full rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
@@ -1375,32 +1385,49 @@ const isSystemEmail = (email: any) => {
             ))}
         </div>
         
-        <div className="flex flex-col gap-3">
-          <Button
-            onClick={generatePersonalitySummary}
-            disabled={isGeneratingSummary || emails.length === 0}
-            className="w-full"
-            variant="outline"
-          >
-            {isGeneratingSummary ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Discovering your personality...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Discover Your Inbox Personality
-              </>
-            )}
-          </Button>
-
-          {personalitySummary && (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-              <p className="text-sm leading-relaxed">{personalitySummary}</p>
-            </div>
+        {/* Discover Button */}
+        <Button
+          onClick={generatePersonalitySummary}
+          disabled={isGeneratingSummary || emails.length === 0}
+          className="w-full mb-4"
+          variant="default"
+        >
+          {isGeneratingSummary ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Discovering your personality...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Discover Your Inbox Personality
+            </>
           )}
-        </div>
+        </Button>
+
+        {/* AI Summary Card */}
+        {personalitySummary && (
+          <div className="bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 border-2 border-primary/30 rounded-lg p-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 text-6xl opacity-10">✨</div>
+            <div className="relative">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">
+                  🧼
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-primary mb-1">Cleany says:</p>
+                  <p className="text-sm leading-relaxed text-foreground">{personalitySummary}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {emails.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center mt-4 italic">
+            Load your emails to discover your inbox personality! 🎉
+          </p>
+        )}
       </div>
 
       <div className="mb-6">
