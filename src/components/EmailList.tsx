@@ -91,6 +91,8 @@ export const EmailList = () => {
     marketing: 0,
     other: 0,
   });
+  const [personalitySummary, setPersonalitySummary] = useState<string>("");
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
 const cleanEmailSnippet = (snippet: string): string => {
   // Remove URLs
@@ -106,6 +108,36 @@ const cleanEmailSnippet = (snippet: string): string => {
     await supabase.auth.signOut();
     navigate("/");
     toast.success("Signed out successfully");
+  };
+
+  const generatePersonalitySummary = async () => {
+    setIsGeneratingSummary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-personality-summary', {
+        body: { percentages: categoryPercentages }
+      });
+
+      if (error) {
+        console.error('Error generating summary:', error);
+        toast.error('Failed to generate personality summary');
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.summary) {
+        setPersonalitySummary(data.summary);
+        toast.success('Personality summary generated!');
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to generate personality summary');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
   };
 
   const loadMoreEmails = async (sender: string) => {
@@ -1324,7 +1356,7 @@ const isSystemEmail = (email: any) => {
         <p className="text-sm text-muted-foreground mb-6">
           Your email breakdown by category
         </p>
-        <div className="space-y-3">
+        <div className="space-y-3 mb-6">
           {Object.entries(categoryPercentages)
             .sort(([, a], [, b]) => b - a)
             .map(([category, percentage]) => (
@@ -1341,6 +1373,33 @@ const isSystemEmail = (email: any) => {
                 </div>
               </div>
             ))}
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={generatePersonalitySummary}
+            disabled={isGeneratingSummary || emails.length === 0}
+            className="w-full"
+            variant="outline"
+          >
+            {isGeneratingSummary ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Discovering your personality...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Discover Your Inbox Personality
+              </>
+            )}
+          </Button>
+
+          {personalitySummary && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+              <p className="text-sm leading-relaxed">{personalitySummary}</p>
+            </div>
+          )}
         </div>
       </div>
 
