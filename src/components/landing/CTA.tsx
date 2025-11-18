@@ -32,7 +32,7 @@ export function LandingCTA() {
           <Button 
             size="lg" 
             className="bg-white text-rose-900 hover:bg-orange-50"
-            onClick={() => navigate('/app')}
+            onClick={() => navigate('/auth')}
           >
             <Mail className="w-5 h-5 mr-2" />
             Start Cleaning for Free
