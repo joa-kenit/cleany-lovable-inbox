@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Sparkles, Loader2, Brain, LogOut, Undo } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { analyzeInboxPersonality, calculatePercentages, type CategoryCounts, type CategoryPercentages } from "@/lib/categoryAnalyzer";
 
 function decodeBase64Utf8(str: string) {
   try {
@@ -81,6 +82,15 @@ export const EmailList = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadingMoreSender, setLoadingMoreSender] = useState<string | null>(null);
   const [senderState, setSenderState] = useState<Record<string, SenderLoadState>>({});
+  const [categoryPercentages, setCategoryPercentages] = useState<CategoryPercentages>({
+    entrepreneurship: 0,
+    technology: 0,
+    lifestyle: 0,
+    fitness: 0,
+    finance: 0,
+    marketing: 0,
+    other: 0,
+  });
 
 const cleanEmailSnippet = (snippet: string): string => {
   // Remove URLs
@@ -437,6 +447,15 @@ return estimateData.messages;
 
       setSenderState(initialSenderState);
       setEmails(allEmails);
+
+      // Analyze inbox personality
+      const counts = analyzeInboxPersonality(allEmails.map(email => ({
+        sender: email.sender,
+        subject: email.subject,
+        snippet: email.snippet,
+      })));
+      const percentages = calculatePercentages(counts);
+      setCategoryPercentages(percentages);
 
       console.log('[Gmail Fetch] Successfully loaded emails with accurate counts');
       toast.success(`Loaded emails from ${senderResults.length} senders`);
@@ -1293,6 +1312,35 @@ const isSystemEmail = (email: any) => {
         </div>
         <div className="lg:col-span-1">
           <PreferencesManager />
+        </div>
+      </div>
+
+      {/* Inbox Personality Section */}
+      <div className="mb-6 bg-card rounded-lg border border-border p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">Inbox Personality</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-6">
+          Your email breakdown by category
+        </p>
+        <div className="space-y-3">
+          {Object.entries(categoryPercentages)
+            .sort(([, a], [, b]) => b - a)
+            .map(([category, percentage]) => (
+              <div key={category} className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium capitalize">{category}</span>
+                  <span className="text-muted-foreground">{percentage}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
         </div>
       </div>
 
