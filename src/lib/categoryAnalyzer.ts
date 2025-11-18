@@ -154,6 +154,45 @@ export function getDominantPersonality(counts: CategoryCounts): EmailCategory {
 }
 
 /**
+ * Converts category counts into percentage breakdown
+ */
+export interface CategoryPercentages {
+  entrepreneurship: number;
+  technology: number;
+  lifestyle: number;
+  fitness: number;
+  finance: number;
+  marketing: number;
+  other: number;
+}
+
+export function calculatePercentages(counts: CategoryCounts): CategoryPercentages {
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  
+  if (total === 0) {
+    return {
+      entrepreneurship: 0,
+      technology: 0,
+      lifestyle: 0,
+      fitness: 0,
+      finance: 0,
+      marketing: 0,
+      other: 0
+    };
+  }
+  
+  return {
+    entrepreneurship: Math.round((counts.entrepreneurship / total) * 100),
+    technology: Math.round((counts.technology / total) * 100),
+    lifestyle: Math.round((counts.lifestyle / total) * 100),
+    fitness: Math.round((counts.fitness / total) * 100),
+    finance: Math.round((counts.finance / total) * 100),
+    marketing: Math.round((counts.marketing / total) * 100),
+    other: Math.round((counts.other / total) * 100)
+  };
+}
+
+/**
  * Gets top N categories by count
  */
 export function getTopCategories(counts: CategoryCounts, limit: number = 3): Array<{ category: EmailCategory; count: number; percentage: number }> {
