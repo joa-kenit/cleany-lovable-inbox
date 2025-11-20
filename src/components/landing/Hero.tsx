@@ -101,7 +101,7 @@ export function LandingHero() {
               <Button 
                 size="lg" 
                 className="bg-rose-800 hover:bg-rose-900 text-white px-8 py-6 text-lg shadow-xl shadow-rose-800/30"
-                onClick={() => navigate('/auth')}
+                onClick={() => navigate('/app')}
               >
                 <Mail className="w-5 h-5 mr-2" />
                 Get Started Free
