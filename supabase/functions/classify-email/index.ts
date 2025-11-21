@@ -42,7 +42,7 @@ Consider:
       `Email ${idx + 1}:\nFrom: ${email.sender}\nSubject: ${email.subject}\nSnippet: ${email.snippet}`
     ).join("\n\n")}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
