@@ -121,3 +121,9 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+#lovable-badge,
+.lovable-badge {
+  display: none !important;
+}
+
