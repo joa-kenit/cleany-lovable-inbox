@@ -43,6 +43,7 @@ ${formattedPercentages}
 Write a clear, insightful 2-sentence summary of what this reveals about the user's email habits and priorities.`;
 
     console.log('Calling Lovable AI with prompt:', prompt);
+    console.log('Function version: v2.0 - Updated voice (calm, confident, founder-to-founder)');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
