@@ -32,7 +32,6 @@ const features = [
     </Link>.
   </>
 ),
-,
     color: "text-amber-700"
   },
   {
