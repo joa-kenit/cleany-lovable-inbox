@@ -1,6 +1,8 @@
 import { Trash2, FolderTree, Zap, Shield, TrendingUp, Brain } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+
 
 const features = [
   {
