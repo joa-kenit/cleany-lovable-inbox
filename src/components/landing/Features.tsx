@@ -24,7 +24,15 @@ const features = [
   {
     icon: Shield,
     title: "Privacy First",
-    description: "Your emails stay yours. We never keep your email content or sell your data. Read the full Privacy Policy",
+    description: (
+  <>
+    Your emails stay yours. We never keep your email content or sell your data. Read the full{" "}
+    <Link to="/privacy" className="text-blue-600 underline hover:text-blue-800">
+      Privacy Policy
+    </Link>.
+  </>
+),
+,
     color: "text-amber-700"
   },
   {
