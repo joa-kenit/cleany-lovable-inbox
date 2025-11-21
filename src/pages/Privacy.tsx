@@ -5,7 +5,7 @@ const PrivacyPolicy = () => {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white shadow-md rounded-lg p-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Privacy Policy for Cleany</h1>
-        <p className="text-sm text-gray-500 mb-8">Last Updated: [Insert Date]</p>
+        <p className="text-sm text-gray-500 mb-8">Last Updated: November 20th, 2025</p>
 
         <div className="space-y-8 text-gray-700 leading-relaxed">
           
@@ -129,8 +129,8 @@ const PrivacyPolicy = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-3">10. Contact Us</h2>
             <p className="mb-2">If you have any questions about this Privacy Policy, please contact us:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>By email:</strong> [Insert Your Support Email]</li>
-              <li><strong>By visiting this page on our website:</strong> [Insert Contact URL]</li>
+              <li><strong>By email:</strong> theothersideofme7@gmail.com </li>
+              
             </ul>
           </section>
 
