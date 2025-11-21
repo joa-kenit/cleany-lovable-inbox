@@ -24,7 +24,7 @@ const features = [
   {
     icon: Shield,
     title: "Privacy First",
-    description: "Your emails stay yours. We never store or read your email content. End-to-end encryption.",
+    description: "Your emails stay yours. We never keep your email content or sell your data. Read the full Privacy Policy",
     color: "text-amber-700"
   },
   {
