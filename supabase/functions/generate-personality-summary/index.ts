@@ -37,11 +37,10 @@ serve(async (req) => {
       )
       .join('\n');
 
-    const prompt = `You are "Cleanie", a playful inbox guide.
-Given this personality profile:
+    const prompt = `Given this inbox personality profile:
 ${formattedPercentages}
 
-Write a fun 2-sentence summary of what this says about the user. Be engaging, motivating, and personable.`;
+Write a clear, insightful 2-sentence summary of what this reveals about the user's email habits and priorities.`;
 
     console.log('Calling Lovable AI with prompt:', prompt);
 
@@ -56,14 +55,14 @@ Write a fun 2-sentence summary of what this says about the user. Be engaging, mo
         messages: [
           { 
             role: 'system', 
-            content: 'You are Cleanie, a playful and engaging inbox personality guide. Keep responses fun, concise, and under 3 sentences.' 
+            content: 'You are Cleany, a calm and confident inbox personality guide. Speak like a founder to another founder - be emotionally intelligent, motivational without clichés, and focus on clarity and direction. No jokes or forced humor. Keep responses concise and under 3 sentences.' 
           },
           { 
             role: 'user', 
             content: prompt 
           }
         ],
-        temperature: 0.9,
+        temperature: 0.7,
         max_tokens: 150,
       }),
     });
