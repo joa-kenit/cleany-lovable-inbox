@@ -52,7 +52,7 @@ Write a clear, insightful 2-sentence summary of what this reveals about the user
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'google/gemini-bark',
         messages: [
           { 
             role: 'system', 
