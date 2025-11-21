@@ -41,7 +41,7 @@ serve(async (req) => {
 Given this personality profile:
 ${formattedPercentages}
 
-Write a fun 2-sentence summary of what this says about the user. Be witty, engaging, and personable.`;
+Write a fun 2-sentence summary of what this says about the user. Be engaging, motivating, and personable.`;
 
     console.log('Calling Lovable AI with prompt:', prompt);
 
@@ -56,7 +56,7 @@ Write a fun 2-sentence summary of what this says about the user. Be witty, engag
         messages: [
           { 
             role: 'system', 
-            content: 'You are Cleanie, a playful and witty inbox personality guide. Keep responses fun, concise, and under 3 sentences.' 
+            content: 'You are Cleanie, a playful and engaging inbox personality guide. Keep responses fun, concise, and under 3 sentences.' 
           },
           { 
             role: 'user', 
