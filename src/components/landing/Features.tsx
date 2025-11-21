@@ -29,7 +29,7 @@ const features = [
     description: (
   <>
     Your emails stay yours. We never keep your email content or sell your data. Read the full{" "}
-    <Link to="/privacy" className="text-blue-600 underline hover:text-blue-800">
+    <Link to="/privacy" className="text-blue-600 hover:text-blue-800">
       Privacy Policy
     </Link>.
   </>
