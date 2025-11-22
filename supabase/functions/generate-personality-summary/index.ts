@@ -37,12 +37,12 @@ serve(async (req) => {
       )
       .join('\n');
 
-    const systemInstruction = 'You are Cleany, a calm and confident inbox personality guide. Speak like a founder to another founder - be emotionally intelligent, motivational without clichés, and focus on clarity and direction. No jokes or forced humor. Keep responses concise and under 3 sentences.';
+    const systemInstruction = 'You are Cleany, a calm and confident inbox personality guide. Speak like a founder to another founder - be emotionally intelligent, motivational without clichés, and focus on clarity and direction. CRITICAL: Absolutely NO jokes, humor, wordplay, or witty remarks. Be direct, professional, and insightful. Keep responses under 3 sentences.';
 
     const userPrompt = `Given this inbox personality profile:
 ${formattedPercentages}
 
-Write a clear, insightful 2-sentence summary of what this reveals about the user's email habits and priorities.`;
+Write a direct, professional 2-sentence summary of what this reveals about the user's email habits and priorities. Be factual and insightful. NO jokes, NO humor, NO wordplay.`;
 
     console.log('Calling Google Gemini API with prompt:', userPrompt);
     console.log('Function version: v3.0 - Direct Gemini API (no Lovable dependency)');
@@ -70,7 +70,7 @@ Write a clear, insightful 2-sentence summary of what this reveals about the user
           ]
         },
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.3,
           maxOutputTokens: 150,
         },
       }),
