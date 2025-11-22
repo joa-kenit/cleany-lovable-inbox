@@ -20,10 +20,10 @@ serve(async (req) => {
       );
     }
 
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY') || Deno.env.get('GEMINI_API_KEY');
-    if (!GOOGLE_API_KEY) {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'GOOGLE_API_KEY or GEMINI_API_KEY is not configured. Please set it in Supabase Edge Function secrets.' }),
+        JSON.stringify({ error: 'LOVABLE_API_KEY is not configured in backend secrets.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -44,56 +44,44 @@ ${formattedPercentages}
 
 Write a direct, professional 2-sentence summary of what this reveals about the user's email habits and priorities. Be factual and insightful. NO jokes, NO humor, NO wordplay.`;
 
-    console.log('Calling Google Gemini API with prompt:', userPrompt);
-    console.log('Function version: v3.0 - Direct Gemini API (no Lovable dependency)');
+    console.log('Calling Lovable AI gateway with prompt:', userPrompt);
+    console.log('Function version: v4.0 - Lovable AI gateway');
 
-    // Use Gemini 2.0 Flash model
-    const model = 'gemini-2.0-flash-exp';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_API_KEY}`;
+    const apiUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: userPrompt }
-            ]
-          }
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: userPrompt },
         ],
-        systemInstruction: {
-          parts: [
-            { text: systemInstruction }
-          ]
-        },
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 150,
-        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Gemini API error:', response.status, errorText);
-      
+      console.error('Lovable AI gateway error:', response.status, errorText);
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      if (response.status === 400) {
+
+      if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'Invalid API key or request. Please check your GOOGLE_API_KEY configuration.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'AI usage limit reached. Please check your workspace credits.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ error: 'Failed to generate personality summary' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -101,9 +89,8 @@ Write a direct, professional 2-sentence summary of what this reveals about the u
     }
 
     const data = await response.json();
-    
-    // Parse Gemini API response format
-    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    const summary = data.choices?.[0]?.message?.content?.trim();
 
     if (!summary) {
       return new Response(
