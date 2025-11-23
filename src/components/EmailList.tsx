@@ -35,7 +35,14 @@ function decodeBase64Utf8(str: string) {
   }
 }
 
-
+const collectAllHeaders = (payload: any): any[] => {
+  if (!payload) return [];
+  const own = payload.headers || [];
+  const parts = Array.isArray(payload.parts)
+    ? payload.parts.flatMap((p: any) => collectAllHeaders(p))
+    : [];
+  return [...own, ...parts];
+};
 
 
 export type EmailAction = "keep" | "delete" | "unsubscribe" | null;
@@ -64,7 +71,7 @@ export interface SenderLoadState {
   fullyLoaded: boolean;
 }
 
-const INBOX_CACHE_KEY = "cleany_inbox_cache_v2";
+const INBOX_CACHE_KEY = "cleany_inbox_cache_v3";
 const INBOX_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface InboxCache {
@@ -263,10 +270,7 @@ const cleanEmailSnippet = (snippet: string): string => {
       // Process messages into Email objects
       const processedEmails: Email[] = messageDetails.map((msg: any) => {
         const payload = msg.payload || {};
-        const headers = [
-          ...(payload.headers || []),
-          ...(payload.parts?.flatMap((p: any) => p.headers || []) || []),
-        ];
+        const headers = collectAllHeaders(payload);
 
         const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
         const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
@@ -446,17 +450,14 @@ const cleanEmailSnippet = (snippet: string): string => {
           // Process messages into Email objects
           const processedEmails: Email[] = messageDetails.map((msg: any) => {
             const payload = msg.payload || {};
-            const headers = [
-              ...(payload.headers || []),
-              ...(payload.parts?.flatMap((p: any) => p.headers || []) || []),
-            ];
+            const headers = collectAllHeaders(payload);
 
             const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
             const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
             const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
             const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
 
-            const sender = fromHeader?.value || 'Unknown';
+            const senderValue = fromHeader?.value || 'Unknown';
             const rawSubject = (subjectHeader?.value || '').trim();
             const snippet = msg.snippet || '';
 
@@ -470,14 +471,14 @@ const cleanEmailSnippet = (snippet: string): string => {
             
             // Detect newsletter based on sender/subject
             const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
-            const senderLower = sender.toLowerCase();
+            const senderLower = senderValue.toLowerCase();
             const subjectLower = subject.toLowerCase();
             const isNewsletter = newsletterPlatforms.some(platform => senderLower.includes(platform)) ||
                                  (subjectLower.includes('newsletter') || subjectLower.includes('digest'));
 
             return {
               id: msg.id,
-              sender,
+              sender: senderValue,
               subject,
               snippet,
               action: null,
@@ -487,7 +488,20 @@ const cleanEmailSnippet = (snippet: string): string => {
             };
           });
 
-          const realCount = senderData.totalCount ?? processedEmails.length;
+          // Get exact inbox count for this sender
+          const { data: countData, error: countError } = await supabase.functions.invoke('fetch-sender-emails', {
+            body: {
+              providerToken,
+              sender: senderEmail,
+              countOnly: true,
+            },
+          });
+
+          if (countError) {
+            console.error(`[Count] Error for ${senderEmail}:`, countError);
+          }
+
+          const realCount = countData?.totalCount ?? senderData.totalCount ?? processedEmails.length;
 
           return {
             sender,
