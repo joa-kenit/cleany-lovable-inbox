@@ -71,7 +71,7 @@ export interface SenderLoadState {
   fullyLoaded: boolean;
 }
 
-const INBOX_CACHE_KEY = "cleany_inbox_cache_v3";
+const INBOX_CACHE_KEY = "cleany_inbox_cache_v4";
 const INBOX_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface InboxCache {
@@ -285,8 +285,9 @@ const cleanEmailSnippet = (snippet: string): string => {
         if (!subject) {
           const decodedBody = payload.body?.data ? decodeBase64Utf8(payload.body.data) : '';
           const bodyFirstLine = decodedBody.split('\n').find((line) => line.trim().length > 0) || '';
-          const fallback = cleanEmailSnippet(snippet || bodyFirstLine);
-          subject = fallback || '(No Subject)';
+          const cleanedSnippet = cleanEmailSnippet(snippet);
+          const fallback = cleanEmailSnippet(bodyFirstLine) || cleanedSnippet;
+          subject = fallback || cleanedSnippet || 'No subject';
         }
         
         // Detect newsletter based on sender/subject
@@ -465,8 +466,9 @@ const cleanEmailSnippet = (snippet: string): string => {
             if (!subject) {
               const decodedBody = payload.body?.data ? decodeBase64Utf8(payload.body.data) : '';
               const bodyFirstLine = decodedBody.split('\n').find((line) => line.trim().length > 0) || '';
-              const fallback = cleanEmailSnippet(snippet || bodyFirstLine);
-              subject = fallback || '(No Subject)';
+              const cleanedSnippet = cleanEmailSnippet(snippet);
+              const fallback = cleanEmailSnippet(bodyFirstLine) || cleanedSnippet;
+              subject = fallback || cleanedSnippet || 'No subject';
             }
             
             // Detect newsletter based on sender/subject
