@@ -64,6 +64,50 @@ export interface SenderLoadState {
   fullyLoaded: boolean;
 }
 
+const INBOX_CACHE_KEY = "cleany_inbox_cache_v1";
+const INBOX_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+interface InboxCache {
+  emails: Email[];
+  senderState: Record<string, SenderLoadState>;
+  timestamp: number;
+}
+
+const loadInboxCache = (): InboxCache | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(INBOX_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as InboxCache;
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > INBOX_CACHE_TTL) {
+      window.localStorage.removeItem(INBOX_CACHE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error("[Inbox Cache] Failed to load cache", error);
+    return null;
+  }
+};
+
+const saveInboxCache = (cache: InboxCache) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INBOX_CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.error("[Inbox Cache] Failed to save cache", error);
+  }
+};
+
+const clearInboxCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(INBOX_CACHE_KEY);
+  } catch (error) {
+    console.error("[Inbox Cache] Failed to clear cache", error);
+  }
+};
+
 export const EmailList = () => {
   const navigate = useNavigate();
   const [emails, setEmails] = useState<Email[]>([]);
@@ -534,15 +578,6 @@ return estimateData.messages;
       setSenderState(initialSenderState);
       setEmails(allEmails);
 
-      // Analyze inbox personality
-      const counts = analyzeInboxPersonality(allEmails.map(email => ({
-        sender: email.sender,
-        subject: email.subject,
-        snippet: email.snippet,
-      })));
-      const percentages = calculatePercentages(counts);
-      setCategoryPercentages(percentages);
-
       console.log('[Gmail Fetch] Successfully loaded emails with accurate counts');
       toast.success(`Loaded emails from ${senderResults.length} senders`);
 
@@ -713,6 +748,14 @@ let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) =
   };
 
 useEffect(() => {
+  const cached = loadInboxCache();
+  if (cached) {
+    setEmails(cached.emails);
+    setSenderState(cached.senderState);
+    setIsLoadingEmails(false);
+    return;
+  }
+
   fetchGmailEmails().then(() => {
     analyzeEmails();
     if (autoApplyEnabled) {
@@ -746,6 +789,38 @@ useEffect(() => {
 
   setSenderState(newSenderState);
 }, [emails]);
+
+useEffect(() => {
+  if (emails.length === 0) {
+    setCategoryPercentages({
+      entrepreneurship: 0,
+      technology: 0,
+      lifestyle: 0,
+      fitness: 0,
+      finance: 0,
+      marketing: 0,
+      other: 0,
+    });
+    clearInboxCache();
+    return;
+  }
+
+  const counts = analyzeInboxPersonality(
+    emails.map((email) => ({
+      sender: email.sender,
+      subject: email.subject,
+      snippet: email.snippet,
+    }))
+  );
+  const percentages = calculatePercentages(counts);
+  setCategoryPercentages(percentages);
+
+  saveInboxCache({
+    emails,
+    senderState,
+    timestamp: Date.now(),
+  });
+}, [emails, senderState]);
 
 
 
