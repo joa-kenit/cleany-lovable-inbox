@@ -601,25 +601,39 @@ const getFilteredEmails = () => {
 
   const filteredEmails = getFilteredEmails();
 
-  // Group emails by sender and keep ALL emails from each sender
-  const groupedEmails = filteredEmails.reduce((acc, email) => {
-    const sender = email.sender;
-    if (!acc[sender]) {
-      acc[sender] = [email];
-    } else {
-      acc[sender].push(email);
+  // Group emails by sender - use senderState as source of truth when available
+  const groupedEmails: Record<string, Email[]> = {};
+  
+  // First, populate from senderState (which has the accurate loaded emails)
+  Object.entries(senderState).forEach(([sender, state]) => {
+    // Filter state.emails based on current tab filters
+    const filteredStateEmails = state.emails.filter(email => {
+      // Apply same filters as getFilteredEmails
+      switch (filterTab) {
+        case "subscriptions":
+          return isSubscriptionEmail(email);
+        case "newsletters":
+          return isNewsletterEmail(email);
+        case "marketing":
+          return isMarketingEmail(email);
+        default:
+          return true;
+      }
+    });
+
+    if (filteredStateEmails.length > 0) {
+      groupedEmails[sender] = filteredStateEmails;
     }
-    return acc;
-  }, {} as Record<string, Email[]>);
+  });
 
 let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) => {
   const typedEmails = senderEmails as Email[];
-  const senderStateCount = senderState[sender]?.totalCount;
-  const emailCount = senderStateCount || typedEmails[0]?.emailCount || typedEmails.length;
-  console.log(`[Display] ${sender.substring(0, 20)}... has ${emailCount} emails`);
+  const senderStateData = senderState[sender];
+  const emailCount = senderStateData?.totalCount ?? typedEmails.length;
+  
   return {
     sender,
-    emails: typedEmails,
+    emails: typedEmails.slice(0, 5), // Always show max 5 emails in collapsed view
     emailCount: emailCount,
   };
 });
@@ -653,8 +667,11 @@ useEffect(() => {
   });
 }, []);
 
-// ✅ INSERTED BLOCK
+// ✅ INSERTED BLOCK - Only sync senderState on initial load, not on every email change
 useEffect(() => {
+  // Only run if senderState is empty (initial load scenario)
+  if (Object.keys(senderState).length > 0) return;
+
   const newSenderState: Record<string, SenderLoadState> = {};
 
   const grouped = emails.reduce((acc, email) => {
@@ -665,13 +682,11 @@ useEffect(() => {
   }, {} as Record<string, Email[]>);
 
   Object.entries(grouped).forEach(([sender, senderEmails]) => {
-    const prev = senderState[sender];
-
     newSenderState[sender] = {
       emails: senderEmails,
-      totalCount: prev?.totalCount ?? senderEmails.length,
-      nextPageToken: prev?.nextPageToken ?? null,
-      fullyLoaded: prev?.fullyLoaded ?? false,
+      totalCount: senderEmails.length,
+      nextPageToken: null,
+      fullyLoaded: false,
     };
   });
 
@@ -788,11 +803,8 @@ useEffect(() => {
 
 const handleImmediateDelete = async (id: string, sender: string) => {
   // Save current state for undo
+  const previousSenderState = { ...senderState };
   const previousEmails = [...emails];
-
-  // Remove email immediately (optimistic update)
-  const updatedEmails = emails.filter(email => email.id !== id);
-  setEmails(updatedEmails);
 
   try {
     // Get the access token
@@ -813,17 +825,30 @@ const handleImmediateDelete = async (id: string, sender: string) => {
       },
     });
 
-    // Update sender state
+    // Update both emails state and sender state
+    setEmails(prev => prev.filter(e => e.id !== id));
+    
+    // Update sender state - remove from emails array and decrement count
     setSenderState(prev => {
       const current = prev[sender];
       if (!current) return prev;
+      
+      const updatedEmails = current.emails.filter(e => e.id !== id);
+      const newTotalCount = Math.max(0, current.totalCount - 1);
+      
+      // If no emails left for this sender, remove the sender entirely
+      if (newTotalCount === 0) {
+        const newState = { ...prev };
+        delete newState[sender];
+        return newState;
+      }
       
       return {
         ...prev,
         [sender]: {
           ...current,
-          emails: current.emails.filter(e => e.id !== id),
-          totalCount: Math.max(0, current.totalCount - 1),
+          emails: updatedEmails,
+          totalCount: newTotalCount,
         }
       };
     });
@@ -835,6 +860,7 @@ const handleImmediateDelete = async (id: string, sender: string) => {
         label: "Undo",
         onClick: () => {
           setEmails(previousEmails);
+          setSenderState(previousSenderState);
           toast.info("Delete undone");
         },
       },
@@ -843,6 +869,7 @@ const handleImmediateDelete = async (id: string, sender: string) => {
     console.error('Error deleting email:', error);
     // Restore previous state on error
     setEmails(previousEmails);
+    setSenderState(previousSenderState);
     toast.error('Failed to delete email. Please try again.');
   }
 };
