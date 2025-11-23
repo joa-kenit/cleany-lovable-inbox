@@ -255,15 +255,28 @@ return estimateData.messages;
 
       // Process messages into Email objects
       const processedEmails: Email[] = messageDetails.map((msg: any) => {
-        const headers = msg.payload?.headers || [];
+        const payload = msg.payload || {};
+        const headers = [
+          ...(payload.headers || []),
+          ...(payload.parts?.flatMap((p: any) => p.headers || []) || []),
+        ];
+
         const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
         const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
         const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
         const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
 
         const sender = fromHeader?.value || 'Unknown';
-        const subject = subjectHeader?.value || '(No Subject)';
+        const rawSubject = (subjectHeader?.value || '').trim();
         const snippet = msg.snippet || '';
+
+        let subject = rawSubject;
+        if (!subject) {
+          const decodedBody = payload.body?.data ? decodeBase64Utf8(payload.body.data) : '';
+          const bodyFirstLine = decodedBody.split('\n').find((line) => line.trim().length > 0) || '';
+          const fallback = cleanEmailSnippet(snippet || bodyFirstLine);
+          subject = fallback || '(No Subject)';
+        }
         
         // Detect newsletter based on sender/subject
         const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
@@ -425,15 +438,28 @@ return estimateData.messages;
 
           // Process messages into Email objects
           const processedEmails: Email[] = messageDetails.map((msg: any) => {
-            const headers = msg.payload?.headers || [];
+            const payload = msg.payload || {};
+            const headers = [
+              ...(payload.headers || []),
+              ...(payload.parts?.flatMap((p: any) => p.headers || []) || []),
+            ];
+
             const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
             const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
             const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
             const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
 
             const sender = fromHeader?.value || 'Unknown';
-            const subject = subjectHeader?.value || '(No Subject)';
+            const rawSubject = (subjectHeader?.value || '').trim();
             const snippet = msg.snippet || '';
+
+            let subject = rawSubject;
+            if (!subject) {
+              const decodedBody = payload.body?.data ? decodeBase64Utf8(payload.body.data) : '';
+              const bodyFirstLine = decodedBody.split('\n').find((line) => line.trim().length > 0) || '';
+              const fallback = cleanEmailSnippet(snippet || bodyFirstLine);
+              subject = fallback || '(No Subject)';
+            }
             
             // Detect newsletter based on sender/subject
             const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
