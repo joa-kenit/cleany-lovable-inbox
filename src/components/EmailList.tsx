@@ -64,7 +64,7 @@ export interface SenderLoadState {
   fullyLoaded: boolean;
 }
 
-const INBOX_CACHE_KEY = "cleany_inbox_cache_v1";
+const INBOX_CACHE_KEY = "cleany_inbox_cache_v2";
 const INBOX_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface InboxCache {
@@ -219,76 +219,39 @@ const cleanEmailSnippet = (snippet: string): string => {
 
       console.log('[Load More] Calling fetch-sender-emails with pageToken:', currentState.nextPageToken);
 
-      // STEP 1 — Normal mode: fetch message IDs (quick estimate)
-const { data: estimateData, error: estimateError } =
-  await supabase.functions.invoke('fetch-sender-emails', {
-    body: {
-      providerToken,
-      sender: sender,
-      maxResults: 5,
-      pageToken: currentState.nextPageToken,
-    },
-  });
+      // Fetch next batch of message IDs for this sender
+      const { data: senderData, error: senderError } = await supabase.functions.invoke('fetch-sender-emails', {
+        body: {
+          providerToken,
+          sender,
+          maxResults: 5,
+          pageToken: currentState.nextPageToken,
+        },
+      });
 
-if (estimateError) {
-  console.error('[Load More] Error:', estimateError);
-  toast.error('Failed to load more emails');
-  return;
-}
+      if (senderError || !senderData) {
+        console.error('[Load More] Error:', senderError);
+        toast.error('Failed to load more emails');
+        return;
+      }
 
-if (!estimateData || !estimateData.messages || estimateData.messages.length === 0) {
-  setSenderState(prev => ({
-    ...prev,
-    [sender]: {
-      ...prev[sender],
-      fullyLoaded: true,
-    },
-  }));
-  toast.info('No more emails to load for this sender');
-  return;
-}
+      if (!senderData.messages || senderData.messages.length === 0) {
+        setSenderState(prev => ({
+          ...prev,
+          [sender]: {
+            ...prev[sender],
+            fullyLoaded: true,
+          },
+        }));
+        toast.info('No more emails to load for this sender');
+        return;
+      }
 
-console.log('[Load More] Fetched', estimateData.messages.length, 'message IDs');
-
-// -----------------------------------------------------------------------
-// STEP 2 — REAL COUNT MODE: fetch true count (slow but accurate)
-// -----------------------------------------------------------------------
-const { data: countData, error: countError } =
-  await supabase.functions.invoke('fetch-sender-emails', {
-    body: {
-      providerToken,
-      sender: sender,
-      countOnly: true,   // ← IMPORTANT
-    },
-  });
-
-if (countError) {
-  console.error('[Count] Error:', countError);
-}
-
-const realCount = countData?.totalCount || estimateData.totalCount || 1;
-console.log(`[Count] Real count for ${sender} = ${realCount}`);
-
-// -----------------------------------------------------------------------
-// STEP 3 — Save accurate count into sender state
-// -----------------------------------------------------------------------
-setSenderState(prev => ({
-  ...prev,
-  [sender]: {
-    ...prev[sender],
-    nextPageToken: estimateData.nextPageToken || null,
-    emailCount: realCount,             // ← FIX applied here
-    fullyLoaded: !estimateData.nextPageToken,
-  },
-}));
-
-// Return fetched message IDs to the caller
-return estimateData.messages;
-
+      console.log('[Load More] Fetched', senderData.messages.length, 'message IDs');
 
       // Fetch full details for each message
       const messageDetails = await Promise.all(
-        estimateData.messages.map(async (msg: { id: string }) => {
+        senderData.messages.map(async (msg: { id: string }) => {
           const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
           const response = await fetch(detailUrl, {
             headers: { 'Authorization': `Bearer ${providerToken}` },
@@ -310,7 +273,7 @@ return estimateData.messages;
         const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
         const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
 
-        const sender = fromHeader?.value || 'Unknown';
+        const senderValue = fromHeader?.value || 'Unknown';
         const rawSubject = (subjectHeader?.value || '').trim();
         const snippet = msg.snippet || '';
 
@@ -324,14 +287,14 @@ return estimateData.messages;
         
         // Detect newsletter based on sender/subject
         const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
-        const senderLower = sender.toLowerCase();
+        const senderLower = senderValue.toLowerCase();
         const subjectLower = subject.toLowerCase();
         const isNewsletter = newsletterPlatforms.some(platform => senderLower.includes(platform)) ||
                              (subjectLower.includes('newsletter') || subjectLower.includes('digest'));
 
         return {
           id: msg.id,
-          sender,
+          sender: senderValue,
           subject,
           snippet,
           action: null,
@@ -341,29 +304,29 @@ return estimateData.messages;
         };
       });
 
-      // Update emails array and sender state
+      // Update emails array
       setEmails(prevEmails => {
         const existingIds = new Set(prevEmails.map(e => e.id));
         const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
         return [...prevEmails, ...newEmails];
       });
 
-      // Update sender state
+      // Update sender state but preserve existing totalCount
       setSenderState(prev => {
-        const currentEmails = prev[sender]?.emails || [];
+        const current = prev[sender] || currentState;
+        const currentEmails = current.emails || [];
         const existingIds = new Set(currentEmails.map(e => e.id));
         const newEmails = processedEmails.filter(e => !existingIds.has(e.id));
         const updatedEmails = [...currentEmails, ...newEmails];
         
-        // Check if we've hit the 100 email cap or no more pages
-        const fullyLoaded = !estimateData.nextPageToken || updatedEmails.length >= 100;
+        const fullyLoaded = !senderData.nextPageToken || updatedEmails.length >= 100;
 
         return {
           ...prev,
           [sender]: {
+            ...current,
             emails: updatedEmails.slice(0, 100), // Cap at 100
-            totalCount: realCount,
-            nextPageToken: estimateData.nextPageToken || null,
+            nextPageToken: senderData.nextPageToken || null,
             fullyLoaded,
           },
         };
@@ -524,16 +487,7 @@ return estimateData.messages;
             };
           });
 
-          // Get real count for this sender
-          const { data: countData, error: countError } = await supabase.functions.invoke('fetch-sender-emails', {
-            body: {
-              providerToken,
-              sender: senderEmail,
-              countOnly: true,
-            },
-          });
-
-          const realCount = countData?.totalCount || processedEmails.length;
+          const realCount = senderData.totalCount ?? processedEmails.length;
 
           return {
             sender,
