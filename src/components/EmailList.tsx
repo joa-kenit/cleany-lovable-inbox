@@ -259,14 +259,28 @@ return estimateData.messages;
         const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
         const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
         const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
+        const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
+
+        const sender = fromHeader?.value || 'Unknown';
+        const subject = subjectHeader?.value || '(No Subject)';
+        const snippet = msg.snippet || '';
+        
+        // Detect newsletter based on sender/subject
+        const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
+        const senderLower = sender.toLowerCase();
+        const subjectLower = subject.toLowerCase();
+        const isNewsletter = newsletterPlatforms.some(platform => senderLower.includes(platform)) ||
+                             (subjectLower.includes('newsletter') || subjectLower.includes('digest'));
 
         return {
           id: msg.id,
-          sender: fromHeader?.value || 'Unknown',
-          subject: subjectHeader?.value || '(No Subject)',
-          snippet: msg.snippet || '',
+          sender,
+          subject,
+          snippet,
           action: null,
           date: dateHeader?.value,
+          unsubscribeUrl: unsubHeader?.value || null,
+          isNewsletter,
         };
       });
 
@@ -415,14 +429,28 @@ return estimateData.messages;
             const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from');
             const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject');
             const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date');
+            const unsubHeader = headers.find((h: any) => h.name.toLowerCase() === 'list-unsubscribe');
+
+            const sender = fromHeader?.value || 'Unknown';
+            const subject = subjectHeader?.value || '(No Subject)';
+            const snippet = msg.snippet || '';
+            
+            // Detect newsletter based on sender/subject
+            const newsletterPlatforms = ['substack', 'beehiiv', 'convertkit', 'mailchimp', 'buttondown', 'ghost.io', 'revue'];
+            const senderLower = sender.toLowerCase();
+            const subjectLower = subject.toLowerCase();
+            const isNewsletter = newsletterPlatforms.some(platform => senderLower.includes(platform)) ||
+                                 (subjectLower.includes('newsletter') || subjectLower.includes('digest'));
 
             return {
               id: msg.id,
-              sender: fromHeader?.value || 'Unknown',
-              subject: subjectHeader?.value || '(No Subject)',
-              snippet: msg.snippet || '',
+              sender,
+              subject,
+              snippet,
               action: null,
               date: dateHeader?.value,
+              unsubscribeUrl: unsubHeader?.value || null,
+              isNewsletter,
             };
           });
 
