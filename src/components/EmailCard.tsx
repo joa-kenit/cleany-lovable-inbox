@@ -56,21 +56,25 @@ export const EmailCard = ({
   senderLoadState 
 }: EmailCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const firstEmail = emails[0];
-  const latestEmails = emails.slice(0, 5); // Show only latest 5
+  
+  // Always show up to 5 emails from what's available in senderLoadState
+  const availableEmails = senderLoadState?.emails ?? emails;
+  const latestEmails = availableEmails.slice(0, 5);
+  const firstEmail = latestEmails[0];
 
-  const currentAction = firstEmail.action;
+  // Don't render if no emails
+  if (!firstEmail) return null;
+
+  const currentAction = firstEmail?.action;
 
   // Calculate remaining emails
-// Correct counts
-const totalCount = senderLoadState?.totalCount ?? emailCount;
-const loadedCount = senderLoadState?.emails?.length ?? emails.length;
+  const totalCount = senderLoadState?.totalCount ?? emailCount;
+  const loadedCount = senderLoadState?.emails?.length ?? emails.length;
+  const remaining = Math.max(totalCount - loadedCount, 0);
 
-const remaining = Math.max(totalCount - loadedCount, 0);
-
-// Hit limits?
-const fullyLoaded = senderLoadState?.fullyLoaded ?? false;
-const atCapLimit = loadedCount >= 100;
+  // Hit limits?
+  const fullyLoaded = senderLoadState?.fullyLoaded ?? false;
+  const atCapLimit = loadedCount >= 100;
 
   
   const getActionButton = (action: EmailAction) => {
@@ -253,7 +257,7 @@ const atCapLimit = loadedCount >= 100;
                 </div>
               ))}
             </div>
-            {emails.length > 5 && (
+            {availableEmails.length > 5 && (
               <div className="border-t">
                 {atCapLimit ? (
                   <div className="w-full px-4 py-2 text-center text-xs text-muted-foreground bg-muted/30">
