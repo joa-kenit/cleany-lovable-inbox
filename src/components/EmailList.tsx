@@ -245,7 +245,7 @@ return estimateData.messages;
       // Fetch full details for each message
       const messageDetails = await Promise.all(
         estimateData.messages.map(async (msg: { id: string }) => {
-          const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
+          const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
           const response = await fetch(detailUrl, {
             headers: { 'Authorization': `Bearer ${providerToken}` },
           });
@@ -415,7 +415,7 @@ return estimateData.messages;
           // Fetch full email details
           const messageDetails = await Promise.all(
             (senderData.messages || []).map(async (msg: { id: string }) => {
-              const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`;
+              const detailUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`;
               const response = await fetch(detailUrl, {
                 headers: { 'Authorization': `Bearer ${providerToken}` },
               });
