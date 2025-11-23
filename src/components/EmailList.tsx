@@ -764,32 +764,6 @@ useEffect(() => {
   });
 }, []);
 
-// ✅ INSERTED BLOCK - Only sync senderState on initial load, not on every email change
-useEffect(() => {
-  // Only run if senderState is empty (initial load scenario)
-  if (Object.keys(senderState).length > 0) return;
-
-  const newSenderState: Record<string, SenderLoadState> = {};
-
-  const grouped = emails.reduce((acc, email) => {
-    const sender = email.sender;
-    if (!acc[sender]) acc[sender] = [];
-    acc[sender].push(email);
-    return acc;
-  }, {} as Record<string, Email[]>);
-
-  Object.entries(grouped).forEach(([sender, senderEmails]) => {
-    newSenderState[sender] = {
-      emails: senderEmails,
-      totalCount: senderEmails.length,
-      nextPageToken: null,
-      fullyLoaded: false,
-    };
-  });
-
-  setSenderState(newSenderState);
-}, [emails]);
-
 useEffect(() => {
   if (emails.length === 0) {
     setCategoryPercentages({
