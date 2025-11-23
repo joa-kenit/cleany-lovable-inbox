@@ -23,7 +23,7 @@ interface EmailCardProps {
 
 // Helper function to format time ago
 const getTimeAgo = (dateString?: string): string => {
-  if (!dateString) return "Recently";
+  if (!dateString) return "";
   
   const date = new Date(dateString);
   const now = new Date();
