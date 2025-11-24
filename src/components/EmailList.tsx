@@ -1451,9 +1451,14 @@ const isSystemEmail = (email: any) => {
       <div className="mb-6 bg-card rounded-lg border border-border p-6 shadow-sm">
         {/* Mascot Header */}
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-            🧼
-          </div>
+         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+  <img 
+    src="/cleany-inbox-logo-nobackground.png" 
+    alt="Cleany clean and organize gmail inbox" 
+    className="w-8 h-8 object-contain"
+  />
+</div>
+
           <div>
             <h2 className="text-xl font-semibold flex items-center gap-2">
               Inbox Personality
@@ -1511,9 +1516,15 @@ const isSystemEmail = (email: any) => {
             <div className="absolute top-0 right-0 text-6xl opacity-10">✨</div>
             <div className="relative">
               <div className="flex items-start gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-lg">
-                  🧼
-                </div>
+                 <div className="flex items-center justify-center flex-shrink-0 overflow-hidden">
+  <img 
+    src="/cleany-inbox-logo-nobackground.png" 
+    alt="Cleany mascot" 
+    className="w-6 h-6 object-contain"
+  />
+</div>
+
+
                 <div className="flex-1">
                   <p className="font-semibold text-sm text-primary mb-1">Cleany says:</p>
                   <p className="text-sm leading-relaxed text-foreground">{personalitySummary}</p>
