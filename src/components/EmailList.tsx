@@ -1519,7 +1519,7 @@ const isSystemEmail = (email: any) => {
             <img 
   src="/cleany-inbox-logo-nobackground.png" 
   alt="Cleany inbox clean organize gmail" 
-  className="w-6 h-6 object-contain"
+  className="w-12 h-12 object-contain"
 />
 
 
