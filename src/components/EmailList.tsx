@@ -1516,13 +1516,12 @@ const isSystemEmail = (email: any) => {
             <div className="absolute top-0 right-0 text-6xl opacity-10">✨</div>
             <div className="relative">
               <div className="flex items-start gap-3 mb-3">
-                 <div className="flex items-center justify-center flex-shrink-0 overflow-hidden">
-  <img 
-    src="/cleany-inbox-logo-nobackground.png" 
-    alt="Cleany mascot" 
-    className="w-6 h-6 object-contain"
-  />
-</div>
+            <img 
+  src="/cleany-inbox-logo-nobackground.png" 
+  alt="Cleany inbox clean organize gmail" 
+  className="w-6 h-6 object-contain"
+/>
+
 
 
                 <div className="flex-1">
