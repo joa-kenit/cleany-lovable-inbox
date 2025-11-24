@@ -1061,6 +1061,85 @@ const handleDeleteAllFromSender = async (sender: string) => {
   }
 };
 
+const handleKeepLatestFromSender = async (sender: string) => {
+  const previousEmails = [...emails];
+  const previousSenderState = { ...senderState };
+  
+  // Extract email from sender string
+  const emailMatch = sender.match(/<(.+)>/);
+  const senderEmail = emailMatch ? emailMatch[1] : sender;
+  
+  // Optimistically keep only latest 5 emails from this sender
+  const senderEmails = emails.filter(email => email.sender === sender);
+  const sortedSenderEmails = senderEmails.sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0;
+    const dateB = b.date ? new Date(b.date).getTime() : 0;
+    return dateB - dateA;
+  });
+  const latest5 = sortedSenderEmails.slice(0, 5);
+  const latest5Ids = new Set(latest5.map(e => e.id));
+  
+  const updatedEmails = emails.filter(email => 
+    email.sender !== sender || latest5Ids.has(email.id)
+  );
+  setEmails(updatedEmails);
+  
+  // Update sender state
+  setSenderState(prev => {
+    const newState = { ...prev };
+    if (newState[sender]) {
+      newState[sender] = {
+        ...newState[sender],
+        emails: latest5,
+        totalCount: 5,
+        fullyLoaded: true,
+        nextPageToken: null,
+      };
+    }
+    return newState;
+  });
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.provider_token;
+
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    toast.info(`Keeping latest 5 emails from ${sender.split('<')[0].trim()}...`, { duration: 3000 });
+
+    // Call keep latest edge function
+    const { data, error } = await supabase.functions.invoke('delete-sender-emails-keep-latest', {
+      body: {
+        providerToken: accessToken,
+        sender: senderEmail,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    toast.success(`Kept ${data.keptCount} latest emails, deleted ${data.deletedCount} older emails`, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setEmails(previousEmails);
+          setSenderState(previousSenderState);
+          toast.info("Action undone");
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error keeping latest emails from sender:', error);
+    setEmails(previousEmails);
+    setSenderState(previousSenderState);
+    toast.error('Failed to keep latest emails. Please try again.');
+  }
+};
+
 const handleImmediateUnsubscribe = async (id: string, sender: string) => {
   setProcessingEmailId(id);
   
@@ -1643,6 +1722,7 @@ const isSystemEmail = (email: any) => {
                 onActionChange={handleActionChange}
                 onDelete={handleImmediateDelete}
                 onDeleteAll={handleDeleteAllFromSender}
+                onKeepLatest={handleKeepLatestFromSender}
                 onUnsubscribe={handleImmediateUnsubscribe}
                 onLoadMore={loadMoreEmails}
                 emailCount={group.emailCount}
