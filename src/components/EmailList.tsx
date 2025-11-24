@@ -1,5 +1,6 @@
 // Rebuild v2 - force cache clear
 import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { EmailCard } from "@/components/EmailCard";
 import { UnsubscribeDialog } from "@/components/UnsubscribeDialog";
@@ -81,15 +82,31 @@ interface InboxCache {
 }
 
 const loadInboxCache = (userId: string): InboxCache | null => {
-  if (!userId) return null;
-  const cacheKey = getInboxCacheKey(userId);
-  // ... rest of logic using cacheKey
+  if (!userId || typeof window === "undefined") return null;
+  try {
+    const cacheKey = getInboxCacheKey(userId);
+    const raw = window.localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as InboxCache;
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > INBOX_CACHE_TTL) {
+      window.localStorage.removeItem(cacheKey);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error("[Inbox Cache] Failed to load cache", error);
+    return null;
+  }
 };
 
 const saveInboxCache = (userId: string, cache: InboxCache) => {
-  if (!userId) return;
-  const cacheKey = getInboxCacheKey(userId);
-  // ... rest of logic using cacheKey
+  if (!userId || typeof window === "undefined") return;
+  try {
+    const cacheKey = getInboxCacheKey(userId);
+    window.localStorage.setItem(cacheKey, JSON.stringify(cache));
+  } catch (error) {
+    console.error("[Inbox Cache] Failed to save cache", error);
+  }
 };
 
 const clearInboxCache = (userId: string) => {
@@ -109,30 +126,8 @@ const clearAllInboxCaches = () => {
   });
 };
 
-const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-useEffect(() => {
-  // Get current user
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    setCurrentUser(session?.user ?? null);
-  });
-
-  // Listen for user changes
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    const newUser = session?.user ?? null;
-    
-    // If user changed, clear cache
-    if (currentUser && newUser && currentUser.id !== newUser.id) {
-      clearAllInboxCaches(); // Clear all user caches
-    }
-    
-    setCurrentUser(newUser);
-  });
-
-  return () => subscription.unsubscribe();
-}, [currentUser]);
-
 export const EmailList = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const [emails, setEmails] = useState<Email[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -162,6 +157,26 @@ export const EmailList = () => {
   const [personalitySummary, setPersonalitySummary] = useState<string>("");
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
+  // Get current user and handle user changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUser = session?.user ?? null;
+      
+      // If user changed, clear all caches
+      if (currentUser && newUser && currentUser.id !== newUser.id) {
+        clearAllInboxCaches();
+      }
+      
+      setCurrentUser(newUser);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [currentUser]);
+
 const cleanEmailSnippet = (snippet: string): string => {
   // Remove URLs
   let cleaned = snippet.replace(/https?:\/\/[^\s]+/g, '');
@@ -174,7 +189,7 @@ const cleanEmailSnippet = (snippet: string): string => {
   
 const handleSignOut = async () => {
   // Clear cache BEFORE signing out
-  if (currentUser) {
+  if (currentUser?.id) {
     clearInboxCache(currentUser.id);
   }
   
@@ -740,6 +755,8 @@ let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) =
   };
 
 useEffect(() => {
+  if (!currentUser?.id) return;
+  
   const cached = loadInboxCache(currentUser.id);
   if (cached) {
     setEmails(cached.emails);
@@ -754,7 +771,7 @@ useEffect(() => {
       applyLearnedPreferences();
     }
   });
-}, []);
+}, [currentUser?.id]);
 
 useEffect(() => {
   if (emails.length === 0) {
@@ -767,7 +784,9 @@ useEffect(() => {
       marketing: 0,
       other: 0,
     });
-    clearInboxCache();
+    if (currentUser?.id) {
+      clearInboxCache(currentUser.id);
+    }
     return;
   }
 
@@ -781,12 +800,14 @@ useEffect(() => {
   const percentages = calculatePercentages(counts);
   setCategoryPercentages(percentages);
 
-  saveInboxCache({ currentUser.id,
-    emails,
-    senderState,
-    timestamp: Date.now(),
-  });
-}, [emails, senderState]);
+  if (currentUser?.id) {
+    saveInboxCache(currentUser.id, {
+      emails,
+      senderState,
+      timestamp: Date.now(),
+    });
+  }
+}, [emails, senderState, currentUser?.id]);
 
 
 
