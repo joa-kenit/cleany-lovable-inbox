@@ -238,6 +238,16 @@ serve(async (req) => {
         const sender = getHeader('From');
         const subject = getHeader('Subject');
         
+        // Debug: Log email details to diagnose "No Subject" issue
+        console.log('[DEBUG Backend] Email details:', {
+          id: detail.id,
+          hasSender: !!sender,
+          hasSubject: !!subject,
+          subjectValue: subject,
+          headerCount: headers.length,
+          headerNames: headers.slice(0, 10).map(h => h.name) // First 10 headers
+        });
+        
 // Extract snippet/body safely
 let snippet = '';
 if (detail?.payload?.body?.data) {
