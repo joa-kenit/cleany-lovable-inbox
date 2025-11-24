@@ -71,7 +71,7 @@ export interface SenderLoadState {
   fullyLoaded: boolean;
 }
 
-const INBOX_CACHE_KEY = "cleany_inbox_cache_v4";
+const getInboxCacheKey = (userId: string) => `cleany_inbox_cache_v5_user_${userId}`;
 const INBOX_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 interface InboxCache {
@@ -80,40 +80,57 @@ interface InboxCache {
   timestamp: number;
 }
 
-const loadInboxCache = (): InboxCache | null => {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(INBOX_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as InboxCache;
-    if (!parsed.timestamp || Date.now() - parsed.timestamp > INBOX_CACHE_TTL) {
-      window.localStorage.removeItem(INBOX_CACHE_KEY);
-      return null;
+const loadInboxCache = (userId: string): InboxCache | null => {
+  if (!userId) return null;
+  const cacheKey = getInboxCacheKey(userId);
+  // ... rest of logic using cacheKey
+};
+
+const saveInboxCache = (userId: string, cache: InboxCache) => {
+  if (!userId) return;
+  const cacheKey = getInboxCacheKey(userId);
+  // ... rest of logic using cacheKey
+};
+
+const clearInboxCache = (userId: string) => {
+  if (!userId) return;
+  const cacheKey = getInboxCacheKey(userId);
+  window.localStorage.removeItem(cacheKey);
+};
+
+// New function to clear ALL user caches (for logout)
+const clearAllInboxCaches = () => {
+  if (typeof window === "undefined") return;
+  const keys = Object.keys(window.localStorage);
+  keys.forEach(key => {
+    if (key.startsWith('cleany_inbox_cache_v5_user_')) {
+      window.localStorage.removeItem(key);
     }
-    return parsed;
-  } catch (error) {
-    console.error("[Inbox Cache] Failed to load cache", error);
-    return null;
-  }
+  });
 };
 
-const saveInboxCache = (cache: InboxCache) => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(INBOX_CACHE_KEY, JSON.stringify(cache));
-  } catch (error) {
-    console.error("[Inbox Cache] Failed to save cache", error);
-  }
-};
+const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-const clearInboxCache = () => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(INBOX_CACHE_KEY);
-  } catch (error) {
-    console.error("[Inbox Cache] Failed to clear cache", error);
-  }
-};
+useEffect(() => {
+  // Get current user
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    setCurrentUser(session?.user ?? null);
+  });
+
+  // Listen for user changes
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const newUser = session?.user ?? null;
+    
+    // If user changed, clear cache
+    if (currentUser && newUser && currentUser.id !== newUser.id) {
+      clearAllInboxCaches(); // Clear all user caches
+    }
+    
+    setCurrentUser(newUser);
+  });
+
+  return () => subscription.unsubscribe();
+}, [currentUser]);
 
 export const EmailList = () => {
   const navigate = useNavigate();
@@ -155,11 +172,16 @@ const cleanEmailSnippet = (snippet: string): string => {
   return cleaned;
 };
   
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-    toast.success("Signed out successfully");
-  };
+const handleSignOut = async () => {
+  // Clear cache BEFORE signing out
+  if (currentUser) {
+    clearInboxCache(currentUser.id);
+  }
+  
+  await supabase.auth.signOut();
+  navigate("/");
+  toast.success("Signed out successfully");
+};
 
   const generatePersonalitySummary = async () => {
     setIsGeneratingSummary(true);
@@ -718,7 +740,7 @@ let displayEmails = Object.entries(groupedEmails).map(([sender, senderEmails]) =
   };
 
 useEffect(() => {
-  const cached = loadInboxCache();
+  const cached = loadInboxCache(currentUser.id);
   if (cached) {
     setEmails(cached.emails);
     setSenderState(cached.senderState);
@@ -759,7 +781,7 @@ useEffect(() => {
   const percentages = calculatePercentages(counts);
   setCategoryPercentages(percentages);
 
-  saveInboxCache({
+  saveInboxCache({ currentUser.id,
     emails,
     senderState,
     timestamp: Date.now(),
