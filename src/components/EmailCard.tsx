@@ -56,13 +56,13 @@ export const EmailCard = ({
   senderLoadState 
 }: EmailCardProps) => {
     // NEW: show only 5 emails at first
-  const [visibleCount, setVisibleCount] = useState(5);
+
 
   const [isOpen, setIsOpen] = useState(false);
   
   // Always show up to 5 emails from what's available in senderLoadState
   const availableEmails = senderLoadState?.emails ?? emails;
-  const latestEmails = availableEmails.slice(0, visibleCount);
+  const latestEmails = availableEmails; // Show all loaded emails
   const firstEmail = latestEmails[0];
 
   // Don't render if no emails
@@ -259,16 +259,48 @@ export const EmailCard = ({
                   </div>
                 </div>
               ))}
-{visibleCount < availableEmails.length && (
-  <div className="p-4 text-center">
-    <button
-      onClick={() => setVisibleCount(prev => prev + 5)}
-      className="text-sm text-primary hover:underline"
-    >
-      Load 5 more emails
-    </button>
-  </div>
-)}
+
+              
+{/* Load More Button */}
+{(() => {
+  const loadedCount = availableEmails.length;
+  const remaining = Math.max(totalCount - loadedCount, 0);
+  const atCapLimit = loadedCount >= 100;
+  
+  if (atCapLimit) {
+    return (
+      <div className="p-4 text-center border-t">
+        <span className="text-xs text-muted-foreground">
+          You've loaded the last 100 emails from this sender
+        </span>
+      </div>
+    );
+  }
+  
+  if (remaining > 0 && !senderLoadState?.fullyLoaded) {
+    return (
+      <div className="p-4 text-center border-t">
+        <button
+          onClick={() => onLoadMore?.(sender)}
+          disabled={isLoadingMore}
+          className="text-sm text-primary hover:underline disabled:opacity-50"
+        >
+          {isLoadingMore ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Loading more emails...
+            </span>
+          ) : (
+            `+${remaining} more emails – Click to load`
+          )}
+        </button>
+      </div>
+    );
+  }
+  
+  return null;
+})()}
+
 
               
             </div>
