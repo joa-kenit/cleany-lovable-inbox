@@ -120,8 +120,10 @@ const clearAllInboxCaches = () => {
   if (typeof window === "undefined") return;
   const keys = Object.keys(window.localStorage);
   keys.forEach(key => {
-    if (key.startsWith('cleany_inbox_cache_v5_user_')) {
+    // Clear ALL versions of inbox cache, not just v5
+    if (key.startsWith('cleany_inbox_cache_')) {
       window.localStorage.removeItem(key);
+      console.log('[Cache] Cleared old cache key:', key);
     }
   });
 };
@@ -317,6 +319,15 @@ const handleSignOut = async () => {
         const senderValue = fromHeader?.value || 'Unknown';
         const rawSubject = (subjectHeader?.value || '').trim();
         const snippet = msg.snippet || '';
+
+        // Debug: Log email processing details
+        console.log('[DEBUG Frontend] Processing email:', {
+          id: msg.id,
+          hasSubjectHeader: !!subjectHeader,
+          subjectValue: subjectHeader?.value,
+          rawSubject,
+          allHeaderNames: headers.slice(0, 10).map((h: any) => h.name)
+        });
 
         let subject = rawSubject;
         if (!subject) {
