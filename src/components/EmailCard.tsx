@@ -12,6 +12,7 @@ interface EmailCardProps {
   onActionChange: (id: string, action: EmailAction) => void;
   onDelete?: (id: string, sender: string) => void;
   onDeleteAll?: (sender: string) => void;
+  onKeepLatest?: (sender: string) => void;
   onUnsubscribe?: (id: string, sender: string) => void;
   onLoadMore?: (sender: string) => void;
   emailCount: number;
@@ -46,7 +47,8 @@ export const EmailCard = ({
   sender, 
   onActionChange, 
   onDelete,
-  onDeleteAll, 
+  onDeleteAll,
+  onKeepLatest, 
   onUnsubscribe,
   onLoadMore, 
   emailCount, 
@@ -170,13 +172,24 @@ export const EmailCard = ({
                 {sender.includes('<') ? sender.match(/<(.+)>/)?.[1] : sender}
               </p>
               {onDeleteAll && totalCount > 0 && (
-                <button
-                  onClick={() => onDeleteAll(sender)}
-                  className="text-xs text-destructive hover:text-destructive/80 hover:underline mt-1 transition-colors"
-                  disabled={isProcessing}
-                >
-                  Delete all {totalCount} emails from this sender
-                </button>
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <button
+                    onClick={() => onDeleteAll(sender)}
+                    className="text-xs text-destructive hover:text-destructive/80 hover:underline text-left transition-colors"
+                    disabled={isProcessing}
+                  >
+                    Delete all {totalCount} emails from this sender
+                  </button>
+                  {onKeepLatest && totalCount > 5 && (
+                    <button
+                      onClick={() => onKeepLatest(sender)}
+                      className="text-xs text-warning hover:text-warning/80 hover:underline text-left transition-colors"
+                      disabled={isProcessing}
+                    >
+                      Keep only latest 5 emails from this sender
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
