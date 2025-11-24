@@ -55,11 +55,14 @@ export const EmailCard = ({
   hideUnsubscribe,
   senderLoadState 
 }: EmailCardProps) => {
+    // NEW: show only 5 emails at first
+  const [visibleCount, setVisibleCount] = useState(5);
+
   const [isOpen, setIsOpen] = useState(false);
   
   // Always show up to 5 emails from what's available in senderLoadState
   const availableEmails = senderLoadState?.emails ?? emails;
-  const latestEmails = availableEmails.slice(0, 5);
+  const latestEmails = availableEmails.slice(0, visibleCount);
   const firstEmail = latestEmails[0];
 
   // Don't render if no emails
@@ -256,31 +259,21 @@ export const EmailCard = ({
                   </div>
                 </div>
               ))}
+{visibleCount < availableEmails.length && (
+  <div className="p-4 text-center">
+    <button
+      onClick={() => setVisibleCount(prev => prev + 5)}
+      className="text-sm text-primary hover:underline"
+    >
+      Load 5 more emails
+    </button>
+  </div>
+)}
+
+              
             </div>
-            {availableEmails.length > 5 && (
-              <div className="border-t">
-                {atCapLimit ? (
-                  <div className="w-full px-4 py-2 text-center text-xs text-muted-foreground bg-muted/30">
-                    You've loaded the last 100 emails from this sender.
-                  </div>
-                ) : remaining > 0 && !fullyLoaded ? (
-                  <button
-                    onClick={() => onLoadMore?.(sender)}
-                    disabled={isLoadingMore}
-                    className="w-full px-4 py-2 text-center text-xs text-primary hover:text-primary/80 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                  >
-                    {isLoadingMore ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Loading more emails...
-                      </span>
-                    ) : (
-                      `+${remaining} more emails – Click to load`
-                    )}
-                  </button>
-                ) : null}
-              </div>
-            )}
+   {/* old Gmail pagination removed */}
+
           </div>
         </CollapsibleContent>
       </Collapsible>
